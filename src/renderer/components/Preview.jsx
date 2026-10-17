@@ -165,6 +165,17 @@ function renderSegment(segment, index) {
     } else if (mark === InlineType.MATH) {
       node = <span className="pv-math-inline">{node}</span>;
     }
+    // The Premium entities have no HTML counterpart — Telegram renders a
+    // special chip for each, which the preview imitates.
+    else if (mark === InlineType.CUSTOM_EMOJI) {
+      node = <span className="pv-emoji">✨{node}</span>;
+    } else if (mark === InlineType.DATE_TIME) {
+      node = <span className="pv-datetime">🕘 {node}</span>;
+    } else if (mark === InlineType.REFERENCE) {
+      node = <span className="pv-reference">{node}</span>;
+    } else if (mark === InlineType.ANCHOR) {
+      node = <span className="pv-anchor">{node}</span>;
+    }
   }
 
   if (segment.href) {
@@ -210,7 +221,11 @@ function renderBlock(block, index) {
 
     case BlockType.BLOCKQUOTE:
       return (
-        <blockquote key={key}>
+        <blockquote
+          key={key}
+          className={block.expandable ? 'pv-expandable' : undefined}
+        >
+          {block.expandable && <span className="pv-expand-mark">▸</span>}
           {renderText(block)}
           {block.attribution && <cite>{block.attribution}</cite>}
         </blockquote>
@@ -238,9 +253,17 @@ function renderBlock(block, index) {
     case BlockType.LIST: {
       const Tag = block.style === 'numbered' ? 'ol' : 'ul';
       return (
-        <Tag key={key}>
+        <Tag
+          key={key}
+          className={block.reversed ? 'pv-reversed' : undefined}
+          start={block.start || undefined}
+          type={block.listType || undefined}
+          reversed={block.reversed || undefined}
+        >
           {(block.items || []).map((item, i) => (
-            <li key={i}>{typeof item === 'string' ? item : item.text || ''}</li>
+            <li key={i} value={item.value || undefined}>
+              {typeof item === 'string' ? item : item.text || ''}
+            </li>
           ))}
         </Tag>
       );
@@ -260,7 +283,16 @@ function renderBlock(block, index) {
 
     case BlockType.TABLE:
       return (
-        <table key={key}>
+        <table
+          key={key}
+          className={[
+            block.striped ? 'pv-striped' : '',
+            block.compact ? 'pv-compact' : '',
+          ]
+            .filter(Boolean)
+            .join(' ') || undefined}
+        >
+          {block.caption ? <caption className="pv-table-caption">{block.caption}</caption> : null}
           {(block.header || []).length > 0 && (
             <thead>
               <tr>
@@ -307,7 +339,11 @@ function renderBlock(block, index) {
     case BlockType.PHOTO:
       return block.url ? (
         <figure key={key} className="pv-figure">
-          <img src={block.url} alt={block.caption || ''} />
+          <img
+            src={block.url}
+            alt={block.caption || ''}
+            className={block.spoiler ? 'pv-spoiler-media' : undefined}
+          />
           <Figcaption caption={block.caption} credit={block.credit} />
         </figure>
       ) : null;
@@ -315,7 +351,11 @@ function renderBlock(block, index) {
     case BlockType.VIDEO:
       return block.url ? (
         <figure key={key} className="pv-figure">
-          <video src={block.url} controls />
+          <video
+            src={block.url}
+            controls
+            className={block.spoiler ? 'pv-spoiler-media' : undefined}
+          />
           <Figcaption caption={block.caption} credit={block.credit} />
         </figure>
       ) : null;
@@ -327,6 +367,44 @@ function renderBlock(block, index) {
           <Figcaption caption={block.caption} credit={block.credit} />
         </figure>
       ) : null;
+
+    // `<tg-document>` has no inline rendering — Telegram shows a file tile.
+    case BlockType.DOCUMENT:
+      return block.url ? (
+        <figure key={key} className="pv-figure">
+          <div className="pv-document" title={block.url}>
+            <span className="pv-document-glyph">📄</span>
+            <span className="pv-document-name">{fileNameOf(block.url)}</span>
+          </div>
+          <Figcaption caption={block.caption} credit={block.credit} />
+        </figure>
+      ) : null;
+
+    // `<tg-button-row>` — the inline keyboard travels inside the message.
+    case BlockType.BUTTONS: {
+      const buttons = (block.buttons || []).filter((b) => b && b.label);
+      if (!buttons.length) return null;
+      return (
+        <div key={key} className={`pv-buttons${block.align ? ` pv-align-${block.align}` : ''}`}>
+          {buttons.map((button, i) => (
+            <span
+              key={i}
+              className={`pv-button${button.style ? ` pv-style-${button.style}` : ''}`}
+            >
+              {button.label}
+            </span>
+          ))}
+        </div>
+      );
+    }
+
+    // `<tg-thinking>` — shown while a draft-mode reply streams.
+    case BlockType.THINKING:
+      return (
+        <div key={key} className="pv-thinking">
+          💭 {block.text}
+        </div>
+      );
 
     case BlockType.SLIDESHOW:
     case BlockType.COLLAGE:

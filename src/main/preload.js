@@ -48,4 +48,20 @@ contextBridge.exposeInMainWorld('app', {
    * @returns {Promise<{ ok: boolean, reachable: boolean, resolved: string, mode: string, description?: string }>}
    */
   testProxy: () => ipcRenderer.invoke('proxy-test'),
+
+  /**
+   * Locally saved drafts — read and written by the main process, so they
+   * survive an OS keychain change (unlike the encrypted settings) and never
+   * touch the network.
+   */
+  draftsList: () => ipcRenderer.invoke('drafts-list'),
+  draftsSave: (payload) => ipcRenderer.invoke('drafts-save', payload),
+  draftsLoad: (id) => ipcRenderer.invoke('drafts-load', { id }),
+  draftsDelete: (id) => ipcRenderer.invoke('drafts-delete', { id }),
+
+  /**
+   * The native "choose files" dialog. Resolves `{ ok, files: [absolutePath] }` —
+   * the renderer wraps each path in a `tfrfile://` URL for editor + preview.
+   */
+  pickMedia: (kind, title) => ipcRenderer.invoke('pick-media', { kind, source: title }),
 });

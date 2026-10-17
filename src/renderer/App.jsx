@@ -17,6 +17,7 @@ import { EditorContent } from '@tiptap/react';
 
 import BottomBar from './components/BottomBar.jsx';
 import { DialogProvider, useDialogs } from './components/Dialog.jsx';
+import Drafts from './components/Drafts.jsx';
 import Preview from './components/Preview.jsx';
 import Settings from './components/Settings.jsx';
 import TitleBar from './components/TitleBar.jsx';
@@ -42,6 +43,8 @@ const THEME_KEY = 'tfr-theme';
 const LANG_KEY = 'tfr-lang';
 const EDIT_ID_KEY = 'tfr-edit-id';
 const RTL_KEY = 'tfr-rtl';
+const ENTITIES_KEY = 'tfr-skip-entities';
+const AUTOSAVE_KEY = 'tfr-autosave';
 
 /** Draft streaming needs a stable non-zero id so updates animate in place. */
 const DRAFT_ID = 1;
@@ -52,7 +55,17 @@ const DRAFT_ID = 1;
 function Shell({ lang, onLangChange }) {
   const { t, dir } = useI18n();
   const toast = useToast();
-  const { askText, askLink, confirm } = useDialogs();
+  const { askText, askLink, askButtons, confirm } = useDialogs();
+
+  /**
+   * The native device picker behind "insert media". Its title follows the UI
+   * language; the part list is the renderer's view of what was picked.
+   * @param {'media'|'audio'|'document'} kind
+   */
+  const askDeviceFiles = useCallback(
+    (kind) => window.app.pickMedia(kind, tRef.current('dialog.mediaTitle')),
+    [],
+  );
 
   const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || DEFAULT_THEME);
   const [settings, setSettings] = useState(() => ({
@@ -63,11 +76,17 @@ function Shell({ lang, onLangChange }) {
   }));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [draftsOpen, setDraftsOpen] = useState(false);
   const [isRtl, setIsRtl] = useState(() => localStorage.getItem(RTL_KEY) === '1');
+  const [skipEntities, setSkipEntities] = useState(
+    () => localStorage.getItem(ENTITIES_KEY) === '1',
+  );
   const [html, setHtml] = useState('');
   const [charCount, setCharCount] = useState(0);
   const [mode, setMode] = useState('rich');
   const [sending, setSending] = useState(false);
+  const [drafts, setDrafts] = useState([]);
+  const [draftsSaving, setDraftsSaving] = useState(false);
 
   const tRef = useRef(t);
   tRef.current = t;
@@ -101,6 +120,57 @@ function Shell({ lang, onLangChange }) {
     localStorage.setItem(RTL_KEY, isRtl ? '1' : '0');
   }, [isRtl]);
 
+  useEffect(() => {
+    localStorage.setItem(ENTITIES_KEY, skipEntities ? '1' : '0');
+  }, [skipEntities]);
+
+  /* ── autosave + restore ──
+   *
+   * The message being written is mirrored to localStorage, so an accidental
+   * restart keeps it. It is written from `html`/`isRtl` with the same format
+   * the editor produced, and offered back on the next launch.
+   */
+
+  const restoreAutosave = useCallback(
+    (data) => {
+      if (!editor || !data || (!data.html || !data.html.trim())) return;
+      editor.commands.setContent(data.html);
+      if (data.isRtl) setIsRtl(true);
+      toast(tRef.current('drafts.restored'), 'info');
+    },
+    [editor, toast],
+  );
+
+  useEffect(() => {
+    let data = null;
+    try {
+      data = JSON.parse(localStorage.getItem(AUTOSAVE_KEY) || 'null');
+    } catch {
+      data = null;
+    }
+    if (data && data.html && data.html.trim()) restoreAutosave(data);
+    // Ran once, on mount, after the editor exists.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+
+  useEffect(() => {
+    // One timer per state, cleaned up on every change — a typed-then-cleared
+    // field always ends empty, and quitting the app right after Clear cannot
+    // resurrect the message a stale pending write used to save.
+    const timer = setTimeout(() => {
+      try {
+        if (html && html.trim()) {
+          localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ html, isRtl }));
+        } else {
+          localStorage.removeItem(AUTOSAVE_KEY);
+        }
+      } catch {
+        // A full quota must never cost the user their keystrokes.
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [html, isRtl]);
+
   // Removed, not skipped, when it is cleared. Only writing on a non-empty value
   // meant an emptied field came back on the next launch, and "Edit" mode then
   // silently rewrote whichever message that stale ID pointed at.
@@ -133,7 +203,10 @@ function Shell({ lang, onLangChange }) {
     });
   }, [notify]);
 
-  const ctx = useMemo(() => ({ askText, askLink, notify }), [askText, askLink, notify]);
+  const ctx = useMemo(
+    () => ({ askText, askLink, askButtons, notify, askFiles: askDeviceFiles }),
+    [askText, askLink, askButtons, notify, askDeviceFiles],
+  );
 
   /* ── send ── */
 
@@ -225,7 +298,7 @@ function Shell({ lang, onLangChange }) {
       }
 
       if (message.html) {
-        const options = { isRtl };
+        const options = { isRtl, skipEntityDetection: skipEntities };
         let result;
         if (mode === 'draft') {
           result = await window.app.api(
@@ -259,7 +332,96 @@ function Shell({ lang, onLangChange }) {
       notify('toast.networkError', 'error');
     }
     setSending(false);
-  }, [settings, html, mode, isRtl, notify, toast, askText]);
+  }, [settings, html, mode, isRtl, skipEntities, notify, toast, askText]);
+
+  /* ── local drafts ── */
+
+  const refreshDrafts = useCallback(async () => {
+    if (!window.app || !window.app.draftsList) return;
+    try {
+      const result = await window.app.draftsList();
+      if (result.ok) setDrafts(result.drafts || []);
+    } catch {
+      // The panel simply shows an empty list.
+    }
+  }, []);
+
+  // The list is loaded when the sheet is opened, not at startup: nothing else
+  // needs it, and the file may be large.
+  const openDrafts = useCallback(() => {
+    setDraftsOpen(true);
+    refreshDrafts();
+  }, [refreshDrafts]);
+
+  const saveDraft = useCallback(async () => {
+    if (!html.trim()) {
+      notify('toast.nothingToSend', 'error');
+      return;
+    }
+    const name = await askText({
+      titleKey: 'drafts.save',
+      placeholderKey: 'drafts.namePlaceholder',
+      value: '',
+    });
+    if (name === null) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      notify('drafts.needName', 'error');
+      return;
+    }
+    setDraftsSaving(true);
+    try {
+      const result = await window.app.draftsSave({ name: trimmed, html, isRtl });
+      if (result.ok) {
+        setDrafts(result.drafts || []);
+        notify('drafts.saved', 'success');
+      } else {
+        notify('toast.networkError', 'error');
+      }
+    } catch {
+      notify('toast.networkError', 'error');
+    }
+    setDraftsSaving(false);
+  }, [html, isRtl, askText, notify]);
+
+  const loadDraft = useCallback(
+    async (draft) => {
+      if (!draft || !editor) return;
+      try {
+        const result = await window.app.draftsLoad(draft.id);
+        if (result.ok && result.draft) {
+          editor.commands.setContent(result.draft.html || '');
+          setIsRtl(!!result.draft.isRtl);
+          setDraftsOpen(false);
+          notify('drafts.loaded', 'success');
+        } else {
+          notify('toast.networkError', 'error');
+        }
+      } catch {
+        notify('toast.networkError', 'error');
+      }
+    },
+    [editor, notify],
+  );
+
+  const deleteDraft = useCallback(
+    async (draft) => {
+      try {
+        const result = await window.app.draftsDelete(draft.id);
+        if (result.ok) {
+          setDrafts(result.drafts || []);
+          // Audible proof the trash did something — the sheet stays open.
+          notify('drafts.deleted', 'success');
+        } else {
+          notify('toast.networkError', 'error');
+        }
+      } catch {
+        notify('toast.networkError', 'error');
+      }
+    },
+    // The list stays as-is on failure, so the item remains deletable.
+    [notify],
+  );
 
   const handleClear = useCallback(async () => {
     if (charCount === 0 && !html.trim()) return;
@@ -270,6 +432,9 @@ function Shell({ lang, onLangChange }) {
       danger: true,
     });
     if (!ok || !editor) return;
+    // Kill the autosave copy first, so a prompt quit after Clear cannot
+    // resurrect the message — then empty the document itself.
+    localStorage.removeItem(AUTOSAVE_KEY);
     editor.chain().focus().clearContent(true).run();
     setHtml('');
     setCharCount(0);
@@ -308,9 +473,11 @@ function Shell({ lang, onLangChange }) {
       <TitleBar
         tokenSet={settings.tokenSet}
         previewOpen={previewOpen}
+        draftsOpen={draftsOpen}
         isRtl={isRtl}
         onToggleRtl={toggleRtl}
         onTogglePreview={() => setPreviewOpen((v) => !v)}
+        onOpenDrafts={openDrafts}
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
@@ -319,7 +486,7 @@ function Shell({ lang, onLangChange }) {
       <main className={`workspace${previewOpen ? ' with-preview' : ''}`}>
         <div className="editor-pane" dir={isRtl ? 'rtl' : 'ltr'}>
           <EditorContent editor={editor} />
-          <TableBubble editor={editor} />
+          <TableBubble editor={editor} ctx={ctx} />
         </div>
         {previewOpen && <Preview html={html} isRtl={isRtl} onClose={() => setPreviewOpen(false)} />}
       </main>
@@ -330,11 +497,22 @@ function Shell({ lang, onLangChange }) {
         charCount={charCount}
         mode={mode}
         onModeChange={setMode}
+        skipEntities={skipEntities}
+        onSkipEntitiesChange={setSkipEntities}
         sending={sending}
         onSend={handleSend}
         onClear={handleClear}
       />
 
+      <Drafts
+        open={draftsOpen}
+        onClose={() => setDraftsOpen(false)}
+        drafts={drafts}
+        saving={draftsSaving}
+        onSave={saveDraft}
+        onLoad={loadDraft}
+        onDelete={deleteDraft}
+      />
       <Settings
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

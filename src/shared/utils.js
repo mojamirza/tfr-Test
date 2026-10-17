@@ -25,7 +25,10 @@ export function deepClone(value) {
 }
 
 /** Schemes a link may use. Everything else is refused. */
-const SAFE_SCHEMES = ['http:', 'https:', 'mailto:', 'tel:', 'tg:'];
+// `tfrfile:` is the app's own scheme for media picked from the local disk —
+// the editor and preview display it through a protocol the main process
+// serves, and it is rewritten to real `tg://…?id=` uploads on send.
+const SAFE_SCHEMES = ['http:', 'https:', 'mailto:', 'tel:', 'tg:', 'tfrfile:'];
 
 /**
  * Keep a URL only if its scheme is one we allow.

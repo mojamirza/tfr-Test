@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import {
   CloseIcon,
+  DraftsIcon,
   MaximizeIcon,
   MinimizeIcon,
   PreviewIcon,
@@ -23,8 +24,10 @@ import { useI18n } from '../i18n/index.js';
  *   tokenSet: boolean,
  *   previewOpen: boolean,
  *   isRtl: boolean,
+ *   draftsOpen: boolean,
  *   onToggleRtl: () => void,
  *   onTogglePreview: () => void,
+ *   onOpenDrafts: () => void,
  *   onOpenSettings: () => void,
  * }} props
  */
@@ -32,8 +35,10 @@ export default function TitleBar({
   tokenSet,
   previewOpen,
   isRtl,
+  draftsOpen,
   onToggleRtl,
   onTogglePreview,
+  onOpenDrafts,
   onOpenSettings,
 }) {
   const { t } = useI18n();
@@ -88,6 +93,15 @@ export default function TitleBar({
           onClick={onTogglePreview}
         >
           <PreviewIcon size={15} />
+        </button>
+        <button
+          type="button"
+          className={`tl-btn${draftsOpen ? ' active' : ''}`}
+          title={t('drafts.title')}
+          aria-label={t('drafts.title')}
+          onClick={onOpenDrafts}
+        >
+          <DraftsIcon size={15} />
         </button>
         <button
           type="button"

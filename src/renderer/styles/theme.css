@@ -1,8 +1,9 @@
 /**
- * Design tokens — Telegram Desktop "Night" palette.
- * The rich-text composer window in Telegram Desktop is the visual reference:
- * flat dark surface, hairline-outlined pill buttons, muted icon grey and a
- * single salmon send button.
+ * Design tokens — Telegram Desktop "Night" palette, modernised.
+ * The rich-text composer window in Telegram Desktop is the visual reference,
+ * but the language is a step lighter on borders and deeper on layering: ghost
+ * buttons on tinted states, hairline surfaces, glass popovers and a single
+ * salmon send button as the only saturated element.
  */
 
 *,
@@ -34,26 +35,26 @@ textarea {
 }
 
 :root {
-  /* Surfaces */
-  --bg: #212d3b;
-  --titlebar: #2b3648;
+  /* Layered surfaces — the app bg is the deepest tone, cards lift off it. */
+  --bg: #1c2836;
+  --titlebar: #1c2836;
   --surface: #17212b;
-  --surface2: #242f3d;
-  --surface3: #2b3848;
-  --menu: #2b3848;
-  --hover: rgba(255, 255, 255, 0.06);
-  --active: rgba(255, 255, 255, 0.1);
+  --surface2: #253140;
+  --surface3: #2c3a4b;
+  --menu: #2c3a4b;
+  --hover: rgba(255, 255, 255, 0.07);
+  --active: rgba(255, 255, 255, 0.12);
 
-  /* Hairline outlines used by every pill button in the reference UI */
-  --outline: rgba(255, 255, 255, 0.09);
-  --outline-strong: rgba(255, 255, 255, 0.16);
+  /* Hairlines are for separation only — buttons carry no borders. */
+  --outline: rgba(255, 255, 255, 0.1);
+  --outline-strong: rgba(255, 255, 255, 0.18);
   --border: #2b3945;
 
   /* Text */
   --text: #ffffff;
   --icon: #aab8c6;
   --text-dim: #8b98a5;
-  --text-muted: #708499;
+  --text-muted: #75889c;
 
   /* Accents */
   --accent: #4ea4f6;
@@ -66,29 +67,39 @@ textarea {
   --warning: #f5a623;
 
   /* Geometry */
-  --titlebar-h: 30px;
+  --titlebar-h: 34px;
   --pill-h: 32px;
   --pill-w: 40px;
-  --pill-r: 11px;
-  --shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --pill-r: 12px;
+  --radius-sm: 9px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* Depth */
+  --ring: color-mix(in srgb, var(--accent) 22%, transparent);
+  --shadow-sm: 0 1px 3px rgba(8, 14, 20, 0.3), 0 2px 10px rgba(8, 14, 20, 0.18);
+  --shadow: 0 10px 34px rgba(8, 14, 20, 0.42);
+  --shadow-lg: 0 18px 52px rgba(8, 14, 20, 0.5);
+  --pop-blur: blur(16px) saturate(1.15);
 }
 
 body.light {
-  --bg: #ffffff;
-  --titlebar: #f1f4f7;
-  --surface: #f4f6f8;
-  --surface2: #eef1f5;
-  --surface3: #e4e9ee;
+  --bg: #f2f5f8;
+  --titlebar: #f2f5f8;
+  --surface: #fbfcfe;
+  --surface2: #eceff4;
+  --surface3: #e2e7ee;
   --menu: #ffffff;
-  --hover: rgba(0, 0, 0, 0.05);
-  --active: rgba(0, 0, 0, 0.08);
+  --hover: rgba(15, 30, 50, 0.06);
+  --active: rgba(15, 30, 50, 0.09);
 
-  --outline: rgba(0, 0, 0, 0.12);
-  --outline-strong: rgba(0, 0, 0, 0.22);
+  --outline: rgba(15, 30, 50, 0.11);
+  --outline-strong: rgba(15, 30, 50, 0.2);
   --border: #dfe5ea;
 
   --text: #14181c;
-  --icon: #707d8b;
+  --icon: #66737f;
   --text-dim: #707d8b;
   --text-muted: #8c98a4;
 
@@ -99,7 +110,10 @@ body.light {
   --math: #6f5ce6;
   --danger: #e0483d;
   --success: #4dbf6a;
-  --shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+  --ring: color-mix(in srgb, #3390ec 20%, transparent);
+  --shadow-sm: 0 1px 3px rgba(20, 40, 60, 0.1), 0 2px 10px rgba(20, 40, 60, 0.06);
+  --shadow: 0 10px 34px rgba(20, 40, 60, 0.18);
+  --shadow-lg: 0 18px 52px rgba(20, 40, 60, 0.22);
 }
 
 body {
@@ -116,6 +130,16 @@ body {
   flex-direction: column;
   height: 100%;
   min-height: 0;
+}
+
+/* One consistent keyboard-only focus ring, everywhere. */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 65%, transparent);
+  outline-offset: 1px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 32%, transparent);
 }
 
 /* Thin Telegram-style scrollbars */

@@ -20,16 +20,20 @@
  */
 
 import {
+  AnchorIcon,
   AudioIcon,
   BoldIcon,
   BulletListIcon,
+  ButtonsIcon,
   ChecklistIcon,
   ClearFormatIcon,
+  ClockIcon,
   CodeBlockIcon,
   CodeIcon,
   CollageIcon,
   DetailsIcon,
   DividerIcon,
+  FileIcon,
   FooterIcon,
   FormulaIcon,
   HeadingIcon,
@@ -39,18 +43,22 @@ import {
   LinkIcon,
   MapIcon,
   MathInlineIcon,
+  MentionIcon,
   OrderedListIcon,
   ParagraphIcon,
   PullQuoteIcon,
   QuoteIcon,
+  SmileyIcon,
   SpoilerIcon,
   StrikeIcon,
   SubscriptIcon,
   SuperscriptIcon,
   TableIcon,
+  ThinkingIcon,
   UnderlineIcon,
 } from '../components/Icons.jsx';
 import { sanitizeUrl } from '../../shared/utils.js';
+import { localFileUrl, localUrlToPath, LOCAL_MEDIA_SCHEME } from '../../shared/html-serializer.js';
 
 /** Convenience: run a chained command on a focused editor. */
 const chain = (editor) => editor.chain().focus();
@@ -66,6 +74,16 @@ function quoteAttribution(editor) {
   if (!editor) return '';
   const node = editor.isActive('pullQuote') ? 'pullQuote' : 'blockquote';
   return (editor.getAttributes(node) || {}).attribution || '';
+}
+
+/**
+ * Whether the blockquote under the caret carries the expandable flag.
+ * @param {object} editor
+ * @returns {boolean}
+ */
+function quoteExpandable(editor) {
+  if (!editor) return false;
+  return !!(editor.getAttributes('blockquote') || {}).expandable;
 }
 
 /** Heading levels, shown as a second menu level under "Heading". */
@@ -97,7 +115,19 @@ export const TEXT_STYLE_ACTIONS = [
     i18nKey: 'block.blockquote',
     icon: QuoteIcon,
     run: (editor) => chain(editor).toggleBlockquote().run(),
-    isActive: (editor) => editor.isActive('blockquote'),
+    isActive: (editor) => editor.isActive('blockquote') && !quoteExpandable(editor),
+  },
+  {
+    id: 'expandableQuote',
+    i18nKey: 'block.expandableQuote',
+    icon: QuoteIcon,
+    run: (editor) =>
+      // Wrapped so the caret does not have to sit on the quote: if it already
+      // is, flip the flag; otherwise wrap a new expandable quote around it.
+      editor.isActive('blockquote')
+        ? chain(editor).toggleQuoteExpandable().run()
+        : chain(editor).toggleBlockquote().toggleQuoteExpandable().run(),
+    isActive: (editor) => quoteExpandable(editor),
   },
   {
     id: 'pullquote',
@@ -244,6 +274,60 @@ export const LIST_ACTIONS = [
     run: (editor) => chain(editor).setDetails().run(),
     isActive: (editor) => editor.isActive('details'),
   },
+  {
+    // `<ol type="a|A|i|I">` — the marker style Rich HTML supports on ordered
+    // lists; a caret anywhere in the list is enough.
+    id: 'listType',
+    i18nKey: 'block.listType',
+    icon: OrderedListIcon,
+    enabled: (editor) => editor.isActive('orderedList'),
+    isActive: (editor) => !!(editor.getAttributes('orderedList') || {}).listType,
+    run: async (editor, ctx) => {
+      const current = (editor.getAttributes('orderedList') || {}).listType || '';
+      const type = await ctx.askText({
+        titleKey: 'block.listType',
+        placeholderKey: 'dialog.listTypePlaceholder',
+        value: current,
+      });
+      if (type === null) return;
+      const value = type.trim();
+      if (value && !/^[aAiI]$/.test(value)) {
+        ctx.notify('toast.invalidListType', 'error');
+        return;
+      }
+      chain(editor).setOrderedListType(value).run();
+    },
+  },
+  {
+    id: 'listReversed',
+    i18nKey: 'block.listReversed',
+    icon: OrderedListIcon,
+    enabled: (editor) => editor.isActive('orderedList'),
+    isActive: (editor) => !!(editor.getAttributes('orderedList') || {}).reversed,
+    run: (editor) => chain(editor).toggleOrderedListReversed().run(),
+  },
+  {
+    // `<li value="7">` — an explicit number for the item under the caret.
+    id: 'listValue',
+    i18nKey: 'block.listValue',
+    icon: OrderedListIcon,
+    enabled: (editor) => editor.isActive('listItem'),
+    run: async (editor, ctx) => {
+      const current = String((editor.getAttributes('listItem') || {}).value || '');
+      const raw = await ctx.askText({
+        titleKey: 'block.listValue',
+        placeholderKey: 'dialog.listValuePlaceholder',
+        value: current,
+      });
+      if (raw === null) return;
+      const value = parseInt(raw.trim(), 10);
+      if (raw.trim() && (!Number.isFinite(value) || value < 1)) {
+        ctx.notify('toast.invalidCoords', 'error');
+        return;
+      }
+      chain(editor).setListItemValue(value).run();
+    },
+  },
 ];
 
 /* ═════════════════════ 4. Table — direct insert + bubble menu ═════════════ */
@@ -288,6 +372,115 @@ export const TABLE_ACTIONS = [
     icon: TableIcon,
     danger: true,
     run: (editor) => chain(editor).deleteTable().run(),
+  },
+];
+
+/* ─── Cell alignment — shown in the bubble menu, serialized as align/valign ─── */
+
+const inTable = (editor) =>
+  !!editor && (editor.isActive('tableCell') || editor.isActive('tableHeader'));
+
+const cellAlignAttrs = (editor) => (editor.getAttributes('tableCell') || {}).align || '';
+const cellValignAttrs = (editor) => (editor.getAttributes('tableCell') || {}).valign || '';
+const headerAlignAttrs = (editor) => (editor.getAttributes('tableHeader') || {}).align || '';
+const headerValignAttrs = (editor) => (editor.getAttributes('tableHeader') || {}).valign || '';
+
+/**
+ * The `align` value currently set on the cell (or header) under the caret.
+ * @param {object} editor
+ * @returns {string}
+ */
+export function cellAlign(editor) {
+  if (!editor || !inTable(editor)) return '';
+  return headerAlignAttrs(editor) || cellAlignAttrs(editor);
+}
+
+/**
+ * The `valign` value currently set on the cell (or header) under the caret.
+ * @param {object} editor
+ * @returns {string}
+ */
+export function cellValign(editor) {
+  if (!editor || !inTable(editor)) return '';
+  return headerValignAttrs(editor) || cellValignAttrs(editor);
+}
+
+export const TABLE_CELL_ACTIONS = [
+  {
+    id: 'alignLeft',
+    i18nKey: 'table.alignLeft',
+    icon: TableIcon,
+    isActive: (editor) => cellAlign(editor) === 'left',
+    run: (editor) =>
+      chain(editor).setCellAlign(cellAlign(editor) === 'left' ? '' : 'left').run(),
+  },
+  {
+    id: 'alignCenter',
+    i18nKey: 'table.alignCenter',
+    icon: TableIcon,
+    isActive: (editor) => cellAlign(editor) === 'center',
+    run: (editor) =>
+      chain(editor).setCellAlign(cellAlign(editor) === 'center' ? '' : 'center').run(),
+  },
+  {
+    id: 'alignRight',
+    i18nKey: 'table.alignRight',
+    icon: TableIcon,
+    isActive: (editor) => cellAlign(editor) === 'right',
+    run: (editor) =>
+      chain(editor).setCellAlign(cellAlign(editor) === 'right' ? '' : 'right').run(),
+  },
+  {
+    id: 'valignTop',
+    i18nKey: 'table.valignTop',
+    icon: TableIcon,
+    isActive: (editor) => cellValign(editor) === 'top',
+    run: (editor) => chain(editor).setCellValign(cellValign(editor) === 'top' ? '' : 'top').run(),
+  },
+  {
+    id: 'valignMiddle',
+    i18nKey: 'table.valignMiddle',
+    icon: TableIcon,
+    isActive: (editor) => cellValign(editor) === 'middle',
+    run: (editor) =>
+      chain(editor).setCellValign(cellValign(editor) === 'middle' ? '' : 'middle').run(),
+  },
+  {
+    id: 'valignBottom',
+    i18nKey: 'table.valignBottom',
+    icon: TableIcon,
+    isActive: (editor) => cellValign(editor) === 'bottom',
+    run: (editor) =>
+      chain(editor).setCellValign(cellValign(editor) === 'bottom' ? '' : 'bottom').run(),
+  },
+  {
+    id: 'tableStriped',
+    i18nKey: 'table.striped',
+    icon: TableIcon,
+    isActive: (editor) => !!(editor.getAttributes('table') || {}).striped,
+    run: (editor) => chain(editor).toggleTableStriped().run(),
+  },
+  {
+    id: 'tableCompact',
+    i18nKey: 'table.compact',
+    icon: TableIcon,
+    isActive: (editor) => !!(editor.getAttributes('table') || {}).compact,
+    run: (editor) => chain(editor).toggleTableCompact().run(),
+  },
+  {
+    id: 'tableCaption',
+    i18nKey: 'table.caption',
+    icon: TableIcon,
+    run: async (editor, ctx) => {
+      const current = (editor.getAttributes('table') || {}).caption || '';
+      const caption = await ctx.askText({
+        titleKey: 'table.caption',
+        placeholderKey: 'dialog.captionPlaceholder',
+        value: current,
+      });
+      if (caption === null) return;
+      chain(editor).setTableCaption(caption.trim()).run();
+    },
   },
 ];
 
@@ -340,11 +533,13 @@ const VIDEO_EXT = /\.(mp4|mov|webm|mkv|m4v|avi)(\?|#|$)/i;
 const AUDIO_EXT = /\.(mp3|ogg|oga|wav|m4a|flac|opus|aac)(\?|#|$)/i;
 
 /**
- * Guess which rich block a media URL belongs to.
+ * Guess which rich block a media URL belongs to. A locally picked file keeps
+ * its kind too — its name rides encoded inside the `tfrfile://` URL.
  * @param {string} url
  * @returns {'video'|'audio'|'photo'}
  */
 export function mediaKindForUrl(url) {
+  if (String(url).startsWith(LOCAL_MEDIA_SCHEME)) return mediaKindForUrl(localUrlToPath(url));
   if (VIDEO_EXT.test(url)) return 'video';
   if (AUDIO_EXT.test(url)) return 'audio';
   return 'photo';
@@ -407,15 +602,30 @@ export const MEDIA_ACTIONS = [
     icon: ImageIcon,
     note: 'media.photoOrVideoNote',
     run: async (editor, ctx) => {
-      const raw = await ctx.askText({
-        titleKey: 'media.photoOrVideo',
-        placeholder: 'https://a.jpg, https://b.mp4',
-      });
-      if (!raw) return;
-      const urls = parseUrlList(raw);
+      // The device picker is the primary path; cancelling without a choice
+      // falls through to the classic URL prompt, so a pasted remote link is
+      // still one gesture away.
+      let urls = [];
+      if (ctx.askFiles) {
+        const picked = await ctx.askFiles('media');
+        if (!picked) return;
+        if (picked.ok === false) {
+          ctx.notify('toast.mediaPickFailed', 'error');
+          return;
+        }
+        urls = (picked.files || []).map(localFileUrl);
+      }
       if (!urls.length) {
-        ctx.notify('toast.unsafeUrl', 'error');
-        return;
+        const raw = await ctx.askText({
+          titleKey: 'media.photoOrVideo',
+          placeholder: 'https://a.jpg, https://b.mp4',
+        });
+        if (!raw) return;
+        urls = parseUrlList(raw);
+        if (!urls.length) {
+          ctx.notify('toast.unsafeUrl', 'error');
+          return;
+        }
       }
       // Two or more files become a slideshow, exactly like Telegram groups them.
       if (urls.length > 1) {
@@ -433,6 +643,19 @@ export const MEDIA_ACTIONS = [
     i18nKey: 'media.audioFile',
     icon: AudioIcon,
     run: async (editor, ctx) => {
+      if (ctx.askFiles) {
+        const picked = await ctx.askFiles('audio');
+        if (!picked) return;
+        if (picked.ok === false) {
+          ctx.notify('toast.mediaPickFailed', 'error');
+          return;
+        }
+        const [file] = picked.files || [];
+        if (file) {
+          chain(editor).setMediaBlock({ kind: 'audio', src: localFileUrl(file) }).run();
+          return;
+        }
+      }
       const raw = await ctx.askText({
         titleKey: 'media.audioFile',
         placeholder: 'https://example.com/song.mp3',
@@ -445,6 +668,51 @@ export const MEDIA_ACTIONS = [
       }
       chain(editor).setMediaBlock({ kind: 'audio', src: url }).run();
     },
+  },
+  {
+    // `<tg-document src="…">` — a general file: PDF, ZIP, anything Telegram
+    // would send through sendDocument, embedded in the article itself.
+    id: 'documentFile',
+    i18nKey: 'media.document',
+    icon: FileIcon,
+    run: async (editor, ctx) => {
+      if (ctx.askFiles) {
+        const picked = await ctx.askFiles('document');
+        if (!picked) return;
+        if (picked.ok === false) {
+          ctx.notify('toast.mediaPickFailed', 'error');
+          return;
+        }
+        const [file] = picked.files || [];
+        if (file) {
+          chain(editor).setMediaBlock({ kind: 'document', src: localFileUrl(file) }).run();
+          return;
+        }
+      }
+      const raw = await ctx.askText({
+        titleKey: 'media.document',
+        placeholder: 'https://example.com/report.pdf',
+      });
+      if (!raw) return;
+      const [url] = parseUrlList(raw);
+      if (!url) {
+        ctx.notify('toast.unsafeUrl', 'error');
+        return;
+      }
+      chain(editor).setMediaBlock({ kind: 'document', src: url }).run();
+    },
+  },
+  {
+    // The `tg-spoiler` attribute on media — hidden behind a blur until tapped.
+    id: 'mediaSpoiler',
+    i18nKey: 'media.spoiler',
+    icon: SpoilerIcon,
+    enabled: (editor) => editor.isActive('image') || editor.isActive('mediaBlock'),
+    isActive: (editor) =>
+      [editor.getAttributes('image'), editor.getAttributes('mediaBlock')].some(
+        (attrs) => !!attrs.spoiler,
+      ),
+    run: (editor) => chain(editor).toggleMediaSpoiler().run(),
   },
   {
     id: 'location',
@@ -519,6 +787,249 @@ export const FORMULA_ACTION = {
 
 /* ═════ Palette-only extras — reachable from the insert palette (wand) ═════ */
 
+/**
+ * Ask for a Premium custom emoji (an ID from a sticker pack or the message
+ * payload) and its fallback text, then insert
+ * `<tg-emoji emoji-id="…">fallback</tg-emoji>`.
+ * @param {object} editor
+ * @param {object} ctx
+ */
+export async function insertCustomEmoji(editor, ctx) {
+  const emojiId = await ctx.askText({
+    titleKey: 'premium.emoji',
+    placeholder: '5368324170671202286',
+  });
+  if (!emojiId) return;
+  const fallback = await ctx.askText({
+    titleKey: 'premium.emojiFallback',
+    placeholder: '👍',
+  });
+  if (fallback === null) return;
+  chain(editor)
+    .insertCustomEmoji({ emojiId: emojiId.trim(), fallback: fallback.trim() || '✨' })
+    .run();
+}
+
+/**
+ * Ask for a Unix timestamp (or any date the browser can parse) plus an
+ * optional date-time format, and insert
+ * `<tg-time unix="…" format="…">fallback</tg-time>`.
+ * @param {object} editor
+ * @param {object} ctx
+ */
+export async function insertDateTime(editor, ctx) {
+  const raw = await ctx.askText({
+    titleKey: 'premium.time',
+    placeholder: '1647531900 or 2022-03-15 22:45',
+  });
+  if (!raw) return;
+  const input = raw.trim();
+  const unix = /^\d+$/.test(input)
+    ? parseInt(input, 10)
+    : Math.floor(Date.parse(input) / 1000);
+  if (!Number.isFinite(unix) || unix < 0) {
+    ctx.notify('toast.invalidTime', 'error');
+    return;
+  }
+  const format = await ctx.askText({
+    titleKey: 'premium.timeFormat',
+    placeholderKey: 'premium.timeFormatHint',
+  });
+  if (format === null) return;
+  const text = await ctx.askText({
+    titleKey: 'premium.timeFallback',
+    placeholder: '22:45 tomorrow',
+  });
+  if (text === null) return;
+  chain(editor)
+    .insertDateTime({ unix, format: format.trim(), text: text.trim() })
+    .run();
+}
+
+/**
+ * Ask for an anchor name and drop `<a name="…"></a>` where the caret is.
+ * @param {object} editor
+ * @param {object} ctx
+ */
+export async function insertAnchor(editor, ctx) {
+  const name = await ctx.askText({
+    titleKey: 'premium.anchor',
+    placeholderKey: 'dialog.anchorPlaceholder',
+  });
+  if (!name) return;
+  const clean = name.trim().replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '');
+  chain(editor).insertAnchor(clean).run();
+}
+
+/**
+ * Mark the selection as `<tg-reference name="…">` — text a footnote link can
+ * point at, the counterpart of the anchor above.
+ * @param {object} editor
+ * @param {object} ctx
+ */
+export async function insertReference(editor, ctx) {
+  const current = (editor.getAttributes('reference') || {}).name || '';
+  const name = await ctx.askText({
+    titleKey: 'premium.reference',
+    placeholderKey: 'dialog.anchorPlaceholder',
+    value: current,
+  });
+  if (name === null) return;
+  const clean = name.trim().replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '');
+  if (!clean) {
+    chain(editor).unsetReference().run();
+    return;
+  }
+  chain(editor).toggleReference(clean).run();
+}
+
+/**
+ * Insert `<a href="tg://user?id=…">` — the inline mention of a Telegram user.
+ * @param {object} editor
+ * @param {object} ctx
+ */
+export async function insertMention(editor, ctx) {
+  const userId = await ctx.askText({
+    titleKey: 'premium.mention',
+    placeholder: '777000',
+  });
+  if (!userId) return;
+  const id = userId.trim();
+  if (!/^\d+$/.test(id)) {
+    ctx.notify('toast.invalidId', 'error');
+    return;
+  }
+  const label = await ctx.askText({
+    titleKey: 'premium.mentionLabel',
+    placeholder: 'Support',
+  });
+  if (label === null) return;
+  const text = label.trim() || `@user${id}`;
+  chain(editor)
+    .insertContent({
+      type: 'text',
+      text,
+      marks: [{ type: 'link', attrs: { href: `tg://user?id=${id}` } }],
+    })
+    .run();
+}
+
+/**
+ * Inline mention — `<a href="tg://user?id=…">`. Declared before the
+ * `PREMIUM_ACTIONS` list that embeds it.
+ */
+export const MENTION_ACTION = {
+  id: 'mention',
+  i18nKey: 'premium.mention',
+  icon: MentionIcon,
+  run: (editor, ctx) => insertMention(editor, ctx),
+};
+
+/** The Premium article features, in palette order. */
+export const PREMIUM_ACTIONS = [
+  {
+    id: 'buttons',
+    i18nKey: 'premium.buttons',
+    icon: ButtonsIcon,
+    run: async (editor, ctx) => {
+      const current = editor.isActive('buttonsRow')
+        ? editor.getAttributes('buttonsRow') || {}
+        : {};
+      const result = await ctx.askButtons({
+        align: current.align || '',
+        buttons: current.buttons || [],
+      });
+      if (!result) return;
+      if (!result.buttons.length) {
+        // An edited row whose buttons were all removed gets deleted.
+        if (editor.isActive('buttonsRow')) chain(editor).deleteSelection().run();
+        return;
+      }
+      if (editor.isActive('buttonsRow')) {
+        chain(editor).updateAttributes('buttonsRow', result).run();
+      } else {
+        chain(editor).setButtonsRow(result).run();
+      }
+    },
+    isActive: (editor) => editor.isActive('buttonsRow'),
+  },
+  {
+    id: 'inlineButton',
+    i18nKey: 'premium.inlineButton',
+    icon: ButtonsIcon,
+    run: async (editor, ctx) => {
+      const current = editor.isActive('inlineButton')
+        ? editor.getAttributes('inlineButton') || {}
+        : null;
+      const result = await ctx.askInlineButton(
+        current ? { ...current, existing: true } : {},
+      );
+      if (!result) return;
+      // A confirmed "Remove" (only shown when editing an existing chip).
+      if (result.removed) {
+        if (current) chain(editor).removeInlineButton().run();
+        return;
+      }
+      if (current) {
+        chain(editor).updateInlineButton(result).run();
+      } else {
+        chain(editor).setInlineButton(result).run();
+      }
+    },
+    isActive: (editor) => editor.isActive('inlineButton'),
+  },
+  {
+    id: 'customEmoji',
+    i18nKey: 'premium.emoji',
+    icon: SmileyIcon,
+    run: (editor, ctx) => insertCustomEmoji(editor, ctx),
+  },
+  MENTION_ACTION,
+  {
+    id: 'dateTime',
+    i18nKey: 'premium.time',
+    icon: ClockIcon,
+    run: (editor, ctx) => insertDateTime(editor, ctx),
+  },
+  {
+    id: 'thinking',
+    i18nKey: 'premium.thinking',
+    icon: ThinkingIcon,
+    note: 'premium.thinkingNote',
+    run: async (editor, ctx) => {
+      const current = editor.isActive('thinkingBlock')
+        ? (editor.getAttributes('thinkingBlock') || {}).text || ''
+        : 'Thinking...';
+      const text = await ctx.askText({
+        titleKey: 'premium.thinking',
+        value: current,
+      });
+      if (text === null) return;
+      const value = text.trim() || 'Thinking...';
+      if (editor.isActive('thinkingBlock')) {
+        chain(editor).updateAttributes('thinkingBlock', { text: value }).run();
+      } else {
+        chain(editor).setThinkingBlock(value).run();
+      }
+    },
+    isActive: (editor) => editor.isActive('thinkingBlock'),
+  },
+  {
+    id: 'anchor',
+    i18nKey: 'premium.anchor',
+    icon: AnchorIcon,
+    run: (editor, ctx) => insertAnchor(editor, ctx),
+  },
+  {
+    id: 'reference',
+    i18nKey: 'premium.reference',
+    icon: AnchorIcon,
+    enabled: (editor) => !editor.state.selection.empty,
+    isActive: (editor) => editor.isActive('reference'),
+    run: (editor, ctx) => insertReference(editor, ctx),
+  },
+];
+
 export const EXTRA_ACTIONS = [
   {
     id: 'code',
@@ -590,6 +1101,7 @@ export function allActions() {
     ...LIST_ACTIONS,
     ...MEDIA_ACTIONS,
     FORMULA_ACTION,
+    ...PREMIUM_ACTIONS,
     ...EXTRA_ACTIONS,
   ];
 }

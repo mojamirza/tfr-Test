@@ -8,7 +8,7 @@
 <p align="center"><em>Because bots should not have more rights than humans.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.5.0-2ca5e0" alt="Version 5.5.0">
+  <img src="https://img.shields.io/badge/version-5.6.0-2ca5e0" alt="Version 5.6.0">
   <img src="https://img.shields.io/badge/Bot%20API-10.1-2ca5e0?logo=telegram&logoColor=white" alt="Bot API 10.1">
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" alt="React 19">
@@ -155,19 +155,23 @@ buttons and one salmon send button.
 | ↶ ↷ | Undo / redo — the full ProseMirror history |
 | **Aa** | **Formatting** → Heading (opens H1–H6), Text, Quote, Pull quote, **Attribution** (the `<cite>` a quote may name), Code block, Footer, Divider |
 | **B** | **Text style** → Bold, Italic, Underline, Strikethrough, Spoiler, Subscript, Superscript, Marked |
-| ☰ | **Insert list** → Ordered list, Bullet list, Checklist *(see [Checklists](#checklists))*, Details |
-| ▦ | **Insert table** → an editable 3×3 table; a floating bar adds and removes rows and columns, and column widths drag on the borders |
+| ☰ | **Insert list** → Ordered list, Bullet list, Checklist *(see [Checklists](#checklists))*, Details, **Marker style** (`a A i I`), **Reversed numbering**, **Explicit item number** |
+| ▦ | **Insert table** → an editable 3×3 table; a minimal icon bar adds and removes rows and columns, drags column widths, and one Layout popover aligns cells horizontally and vertically, stripes or compacts rows and titles the table with a caption |
 | 🔗 | **Insert link** → a *Create link* panel with **Text** and **URL** fields |
-| 🖼 | **Insert media** → Photo or video (two or more become a slideshow), Audio file, Location, **Caption…** (the `<figcaption>` under a media item) |
+| 🖼 | **Insert media** → opens the **device picker** (photos/videos from local storage, several become a slideshow; audio and documents get their own pickers) · cancel it to paste remote URLs instead · Location, **Spoiler** (blur the media until tapped), **Caption…** (the `<figcaption>` under a media item) |
 | Σ | **Insert formula** → asks for the formula, drops in a math block |
 | ✦ | The insert palette — search every block and format by name |
-| 🗑 ➤ | Clear the message · Send it (right-click to pick rich message, draft or edit) |
+| 🗑 ➤ | Clear the message · Send it (right-click to pick rich message, draft or edit, and the *skip auto-detection* toggle) |
 
-The title bar holds the settings gear with a connection dot, the live-preview toggle and the
-right-to-left switch for the message you are writing.
+The title bar holds the settings gear with a connection dot, the **local drafts** folder, the
+live-preview toggle and the right-to-left switch for the message you are writing.
 
-> **No emoji button.** Custom emoji are a Premium-only entity that bots cannot send through the
-> rich-message API. Plain Unicode emoji typed from your keyboard travel as ordinary text.
+> **Premium, without Premium.** The entities bots *can* send from the rich-message API live in the
+> insert palette: inline **buttons** (rows of `<tg-button-row>` or the 10.3 single chip inside a
+> paragraph), **custom emoji** (`<tg-emoji>`), formatted
+> **date-time** chips (`<tg-time>`), **anchors** (`<a name>`), **references** (`<tg-reference>`) and
+> inline **mentions** (`tg://user?id=`). Telegram renders the artwork and live date for every
+> reader.
 
 ---
 
@@ -177,19 +181,25 @@ right-to-left switch for the message you are writing.
 
 | | |
 |---|---|
-| **Text** | Bold · Italic · Underline · Strikethrough · Spoiler · Marked · Subscript · Superscript · Monospace · Inline formula · Links |
-| **Blocks** | Heading H1–H6 · Paragraph · Quote *(with attribution)* · Pull quote *(with attribution)* · Code block with language · Divider · Collapsible · Footer · Formula block |
-| **Lists** | Ordered · Bulleted · Checklist *(see [Checklists](#checklists))* |
-| **Tables** | Header row, editable cells, drag-to-resize columns |
-| **Media** | Photo · Video · Audio · Slideshow *(‹ › carousel)* · Collage · Location — each with an optional caption |
+| **Text** | Bold · Italic · Underline · Strikethrough · Spoiler · Marked · Subscript · Superscript · Monospace · Inline formula · Links · Inline mentions · Custom (Premium) emoji · Formatted date-time |
+| **Blocks** | Heading H1–H6 · Paragraph · Quote *(with attribution, **expandable to one line**)* · Pull quote *(with attribution)* · Code block with language · Divider · Collapsible · Footer · Formula block · Thinking placeholder *(draft mode)* |
+| **Lists** | Ordered *(start, marker style `a A i I`, reversed, explicit item numbers)* · Bulleted · Checklist *(see [Checklists](#checklists))* |
+| **Tables** | Header row, editable cells, drag-to-resize columns · Caption · Striped & compact rows · Cell `align`/`valign` · Cell `colspan`/`rowspan` |
+| **Media** | Photo · Video · Audio · Document · Slideshow *(‹ › carousel)* · Collage · Location — picked **from the device and uploaded with the message** or by URL — each with an optional caption and a per-figure spoiler |
+| **Buttons** | Inline keyboard rows (`<tg-button-row>`) and the 10.3 in-text chip (`<tg-button>` inside a paragraph) — URL, callback data, Mini App, login, switch-inline (incl. chosen-chat filters), copy-text, disabled — with Telegram's four color themes (`primary` blue, `success` green, `danger` red, `link`), picked as swatches and tinted all the way from dialog to preview |
+| **Structure** | Anchors (`<a name>`) and references (`<tg-reference>`) through the footnote `#name` links |
 
 And while you write:
 
+- **Local drafts** — save the message to disk with its exact Rich HTML and RTL flag, load it again
+  with one click; the current message is also mirrored to storage and offered back after a restart
 - **Live preview** — a real Telegram bubble, rendered from the same document you are editing
 - **Markdown shortcuts** — `## `, `> `, `- `, `1. `, ` ``` `, `**bold**`, `` `code` ``
 - **Insert palette** — one search box over every block and format
 - **Dark and light themes**, English and Persian UI, full right-to-left support
 - **Character counter** against Telegram's 32,768 limit
+- **Skip auto-detection** — sends `skip_entity_detection`, leaving hashtags and phone numbers as
+  plain text
 
 ### Send modes
 
@@ -284,8 +294,10 @@ The live preview keeps its own path — `block-parser.js` and `inline-parser.js`
 | link | `<a href>` | `RichTextUrl` |
 | inline formula | `<tg-math>` | `RichTextMathematicalExpression` |
 
-Links keep only `http`, `https`, `mailto`, `tel`, `tg` and in-document `#anchor` targets; media
-accepts `http(s)` only, exactly as the API requires.
+Links keep only `http`, `https`, `mailto`, `tel`, `tg` and in-document `#anchor` targets; on the
+wire media accepts `http(s)` only, exactly as the API requires. Media picked from the device
+travels inside the app as `tfrfile://…` references and is rewritten to `tg://…?id=` links backed by
+real multipart uploads when the message is built.
 
 </details>
 

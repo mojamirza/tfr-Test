@@ -31,6 +31,8 @@ const MODES = [
  *   charCount: number,
  *   mode: string,
  *   onModeChange: (mode: string) => void,
+ *   skipEntities: boolean,
+ *   onSkipEntitiesChange: (value: boolean) => void,
  *   sending: boolean,
  *   onSend: () => void,
  *   onClear: () => void,
@@ -42,6 +44,8 @@ export default function BottomBar({
   charCount,
   mode,
   onModeChange,
+  skipEntities,
+  onSkipEntitiesChange,
   sending,
   onSend,
   onClear,
@@ -155,6 +159,23 @@ export default function BottomBar({
               )}
             </button>
           ))}
+          <span className="menu-sep" />
+          {/* skip_entity_detection — flags Telegram would otherwise find by
+              itself (hashtags, phone numbers, /commands) are left as plain
+              text when this is on. */}
+          <button
+            type="button"
+            className={`menu-item${skipEntities ? ' active' : ''}`}
+            title={t('send.skipEntitiesHelp')}
+            onClick={() => onSkipEntitiesChange(!skipEntities)}
+          >
+            <span className="menu-label">{t('send.skipEntities')}</span>
+            {skipEntities && (
+              <span className="menu-check">
+                <CheckIcon size={15} />
+              </span>
+            )}
+          </button>
         </div>
       </Popover>
     </div>

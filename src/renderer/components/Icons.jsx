@@ -220,6 +220,50 @@ export const TableIcon = (p) => (
   </Svg>
 );
 
+/* Table bubble icons — a row/column is a band of the grid with a plus or a
+   minus riding it, and the layout popover lives behind the sliders glyph. */
+
+export const RowAddIcon = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+    <path d="M3 14h18" />
+    <path d="M12 6.5v5M9.5 9h5" />
+  </Svg>
+);
+
+export const RowRemoveIcon = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+    <path d="M3 9.5h18" />
+    <path d="M9.5 17h5" />
+  </Svg>
+);
+
+export const ColAddIcon = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+    <path d="M14 4.5v15" />
+    <path d="M6 12h5M8.5 9.5v5" />
+  </Svg>
+);
+
+export const ColRemoveIcon = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+    <path d="M10 4.5v15" />
+    <path d="M16 12h4" />
+  </Svg>
+);
+
+export const CellLayoutIcon = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="4.5" width="18" height="15" rx="2.5" />
+    <path d="M3 9.5h18M11.5 4.5v15" />
+    <circle cx="7.25" cy="7" r="1.15" fill="currentColor" stroke="none" />
+    <circle cx="16.75" cy="17" r="1.15" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
 export const DetailsIcon = (p) => (
   <Svg {...p}>
     <path d="M4 6.5h16M4 17.5h16" />
@@ -410,6 +454,70 @@ export const FileIcon = (p) => (
   <Svg {...p}>
     <path d="M13.5 3.5H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9z" />
     <path d="M13.5 3.5V9H19" />
+  </Svg>
+);
+
+/* ─────────────────────── Premium entities ─────────────────────── */
+
+/** Folder — locally saved drafts. */
+export const DraftsIcon = (p) => (
+  <Svg {...p}>
+    <path d="M3.5 6.8a2 2 0 0 1 2-2h4l2 2.4h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />
+  </Svg>
+);
+
+/** Smiley with sparkle — custom (Premium) emoji. */
+export const SmileyIcon = (p) => (
+  <Svg {...p}>
+    <circle cx="11" cy="12" r="7.5" />
+    <path d="M8 10.4v.8M14 10.4v.8" />
+    <path d="M8 14.5a4.4 4.4 0 0 0 6 0" />
+    <path d="M19 2.6l.9 2 2 .9-2 .9-.9 2-.9-2-2-.9 2-.9z" />
+  </Svg>
+);
+
+/** Clock — formatted date-time entity. */
+export const ClockIcon = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8" />
+    <path d="M12 7.5V12l3 2" />
+  </Svg>
+);
+
+/** Anchor — a named anchor to link to. */
+export const AnchorIcon = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="6" r="2.2" />
+    <path d="M12 8.2V19" />
+    <path d="M5.5 12.5a6.5 6.5 0 0 0 13 0" />
+    <path d="M9.5 12.5H4.2M19.8 12.5h-4.7" />
+  </Svg>
+);
+
+/** Square button rows — inline keyboard buttons. */
+export const ButtonsIcon = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="4.75" width="10" height="4.5" rx="2.25" />
+    <rect x="11" y="9.75" width="10" height="4.5" rx="2.25" />
+    <rect x="3" y="14.75" width="10" height="4.5" rx="2.25" />
+  </Svg>
+);
+
+/** @ mention — an inline mention of a user. */
+export const MentionIcon = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M16 8v5a3 3 0 0 0 5.4 1.8A9 9 0 1 0 18 20.2" />
+  </Svg>
+);
+
+/** Thought bubble — the draft-mode thinking placeholder. */
+export const ThinkingIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4.5 12.3a7.5 7.5 0 1 1 13.6 4.4l.6 3-3-.7a7.5 7.5 0 0 1-11.2-6.7z" />
+    <circle cx="8.6" cy="19.4" r="1.15" />
+    <circle cx="6" cy="21.4" r=".85" />
+    <path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01" />
   </Svg>
 );
 

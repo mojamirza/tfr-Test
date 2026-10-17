@@ -22,6 +22,9 @@ export const BlockType = Object.freeze({
   COLLAGE: 'collage',
   MAP: 'map',
   CHECKLIST: 'checklist',
+  DOCUMENT: 'document',
+  BUTTONS: 'buttons',
+  THINKING: 'thinking',
 });
 
 /**
@@ -49,4 +52,7 @@ export const InlineType = Object.freeze({
   BANK_CARD: 'bank_card_number',
   CUSTOM_EMOJI: 'custom_emoji',
   MATH: 'math',
+  DATE_TIME: 'date_time',
+  REFERENCE: 'reference',
+  ANCHOR: 'anchor',
 });

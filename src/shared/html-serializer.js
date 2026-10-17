@@ -28,6 +28,9 @@ export const LIMITS = Object.freeze({
   MAP_ZOOM_MAX: 20,
   CHECKLIST_TASKS: 30,
   CHECKLIST_TASK_CHARS: 100,
+  // Not a documented limit — inline keyboards in Telegram hold at most this
+  // many buttons per row, and the editor dialog enforces the same bound.
+  BUTTONS_PER_ROW: 8,
 });
 
 /** Inline tags that map straight through, editor tag → API tag. */
@@ -66,9 +69,101 @@ const BLOCK_MAP = {
  * URL schemes allowed on links, and the stricter set allowed on media.
  * Exported because the preview parsers apply the same lists — a URL the
  * message will not carry should not appear in the preview either.
+ *
+ * `tfrfile:` is the app's own scheme for media picked from the local disk. It
+ * transports the absolute file path in the editor document and the preview,
+ * which both run in the app where the scheme is registered; when the message
+ * is built the scheme is rewritten to `tg://...?id=` references backed by a
+ * real upload (see `rewriteLocalMedia`).
  */
 export const LINK_SCHEMES = ['http:', 'https:', 'mailto:', 'tel:', 'tg:'];
-export const MEDIA_SCHEMES = ['http:', 'https:'];
+export const MEDIA_SCHEMES = ['http:', 'https:', 'tfrfile:'];
+
+/** The scheme and host the editor uses to display a locally picked file. */
+export const LOCAL_MEDIA_SCHEME = 'tfrfile://media/';
+
+/** Telegram's upload channel for each media kind of a rich message. */
+const MEDIA_REF_SCHEME = {
+  photo: 'tg://photo?id=',
+  video: 'tg://video?id=',
+  animation: 'tg://video?id=',
+  document: 'tg://document?id=',
+  audio: 'tg://audio?id=',
+  voice: 'tg://audio?id=',
+};
+
+/**
+ * Turn an absolute path on disk into the editor's media URL.
+ * @param {string} absolutePath
+ * @returns {string}
+ */
+export function localFileUrl(absolutePath) {
+  const posix = String(absolutePath || '').trim().replace(/\\/g, '/');
+  return LOCAL_MEDIA_SCHEME + encodeURIComponent(posix);
+}
+
+/**
+ * Turn the editor's media URL back into an absolute path.
+ * @param {string} url
+ * @returns {string}
+ */
+export function localUrlToPath(url) {
+  if (!String(url || '').startsWith(LOCAL_MEDIA_SCHEME)) return '';
+  const decoded = decodeURIComponent(String(url).slice(LOCAL_MEDIA_SCHEME.length));
+  return decoded.replace(/[?#].*$/, '');
+}
+
+/**
+ * The InputMedia type a local media file uploads as. A `.gif` rides a
+ * `video` block but uploads as an animation, and a raw `.ogg` is a voice
+ * note — matching how Telegram classifies the same files sent directly.
+ * @param {string} path
+ * @param {string} tag
+ * @returns {'photo'|'video'|'animation'|'document'|'audio'|'voice'}
+ */
+export function localUploadType(path, tag) {
+  const ext = (String(path).split('.').pop() || '').toLowerCase();
+  if (tag === 'tg-document') return 'document';
+  if (tag === 'img') return 'photo';
+  if (tag === 'video') return ext === 'gif' ? 'animation' : 'video';
+  if (tag === 'audio') return ['ogg', 'oga'].includes(ext) ? 'voice' : 'audio';
+  return 'photo';
+}
+
+/**
+ * Rewire media picked from the local disk into what the Bot API expects:
+ * each `tfrfile://` src becomes a `tg://photo?id=` link, and the paths climb
+ * out in `files` for the main process to attach as multipart uploads. Ids are
+ * `m1`, `m2`, … — only `A-Z a-z 0-9 _ -`, 1–64 chars, as the spec requires —
+ * and the same file picked twice uploads once and is referenced twice.
+ *
+ * @param {string} html
+ * @returns {{ html: string, files: Array<{ id: string, path: string, type: string }>|null }}
+ */
+export function rewriteLocalMedia(html) {
+  if (!String(html || '').includes('tfrfile://')) return { html, files: null };
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const files = [];
+  const byPath = new Map();
+
+  const TAGS = 'img, video, audio, tg-document';
+  doc.querySelectorAll(TAGS).forEach((el) => {
+    const src = el.getAttribute('src') || '';
+    if (!src.startsWith(LOCAL_MEDIA_SCHEME)) return;
+    const path = localUrlToPath(src);
+    if (!path) return;
+    if (!byPath.has(path)) {
+      const id = `m${byPath.size + 1}`;
+      const entry = { id, path, type: localUploadType(path, el.tagName.toLowerCase()) };
+      byPath.set(path, entry);
+      files.push(entry);
+    }
+    const entry = byPath.get(path);
+    el.setAttribute('src', `${MEDIA_REF_SCHEME[entry.type]}${entry.id}`);
+  });
+
+  return { html: doc.body.innerHTML, files };
+}
 
 /**
  * Escape text for HTML output.
@@ -204,9 +299,50 @@ function nodeToHtml(node, state, inlineOnly) {
 
   if (tag === 'SPAN') {
     const inner = childrenToHtml(el, state, inlineOnly);
+
     if (el.hasAttribute('data-spoiler')) return `<tg-spoiler>${inner}</tg-spoiler>`;
     if (el.hasAttribute('data-inline-math')) return `<tg-math>${inner}</tg-math>`;
+
+    // `<tg-reference name="…">` — text another link can point at by name.
+    if (el.hasAttribute('data-tg-reference')) {
+      const name = (el.getAttribute('data-tg-reference') || '').trim();
+      return name ? `<tg-reference name="${escapeAttr(name)}">${inner}</tg-reference>` : inner;
+    }
+
+    // `<tg-emoji emoji-id="…">👍</tg-emoji>` — the Premium custom emoji entity.
+    // The fallback text travels with it, exactly as the format documents.
+    if (el.hasAttribute('data-emoji-id')) {
+      const id = (el.getAttribute('data-emoji-id') || '').trim();
+      return id ? `<tg-emoji emoji-id="${escapeAttr(id)}">${inner.trim()}</tg-emoji>` : '';
+    }
+
+    // `<tg-time unix="…" format="…">22:45 tomorrow</tg-time>` — a live
+    // date-time chip, with the plain text shown where it is not supported.
+    if (el.hasAttribute('data-tg-time')) {
+      const unix = parseInt(el.getAttribute('data-tg-time'), 10);
+      if (!Number.isFinite(unix)) return '';
+      const format = (el.getAttribute('data-time-format') || '').trim();
+      const attrs = ` unix="${unix}"${format ? ` format="${escapeAttr(format)}"` : ''}`;
+      return `<tg-time${attrs}>${inner}</tg-time>`;
+    }
+
+    // `<a name="…"></a>` — an empty anchor block to link to with `#name`.
+    // Not meaningful inside a table cell, where blocks are not allowed.
+    if (el.hasAttribute('data-tg-anchor')) {
+      const name = (el.getAttribute('data-tg-anchor') || '').trim();
+      if (inlineOnly || !name) return '';
+      state.blocks += 1;
+      return `<a name="${escapeAttr(name)}"></a>`;
+    }
+
     return inner;
+  }
+
+  // `<tg-button …>` — the 10.3 inline button (RichTextButton): a clickable
+  // chip riding inside a paragraph, not a `<tg-button-row>` block. Allowed in
+  // table cells too, so it serializes before the inlineOnly unwrap below.
+  if (tag === 'TG-BUTTON') {
+    return buttonToHtml(elToRawButton(el)) || '';
   }
 
   // Inside a table cell nothing below this point is allowed — unwrap it.
@@ -226,8 +362,24 @@ function nodeToHtml(node, state, inlineOnly) {
     const inner = childrenToHtml(source, state);
     if (!inner.trim() && tag !== 'LI') return '';
     const name = BLOCK_MAP[tag];
-    const start = tag === 'OL' && el.getAttribute('start') ? ` start="${escapeAttr(el.getAttribute('start'))}"` : '';
-    return `<${name}${start}>${inner}</${name}>`;
+    let open = `<${name}`;
+    if (tag === 'OL') {
+      // The documented list attributes: a start number, a marker style and
+      // a reversed direction.
+      const start = el.getAttribute('start');
+      if (start) open += ` start="${escapeAttr(start)}"`;
+      const listType = (el.getAttribute('data-list-type') || '').trim();
+      if (/^[aAiI]$/.test(listType)) open += ` type="${listType}"`;
+      if (el.hasAttribute('data-reversed')) open += ' reversed';
+    }
+    if (tag === 'LI') {
+      const value = parseInt(el.getAttribute('data-value'), 10);
+      if (Number.isFinite(value) && value > 0) open += ` value="${value}"`;
+      const listType = (el.getAttribute('data-list-type') || '').trim();
+      if (/^[aAiI]$/.test(listType)) open += ` type="${listType}"`;
+    }
+    open += '>';
+    return `${open}${inner}</${name}>`;
   }
 
   if (tag === 'HR') {
@@ -241,9 +393,10 @@ function nodeToHtml(node, state, inlineOnly) {
     const credit = el.getAttribute('data-attribution');
     const cite = credit ? `<cite>${escapeText(credit)}</cite>` : '';
     // A pull quote is <aside> in the API dialect.
-    return el.hasAttribute('data-pullquote')
-      ? `<aside>${inner}${cite}</aside>`
-      : `<blockquote>${inner}${cite}</blockquote>`;
+    if (el.hasAttribute('data-pullquote')) return `<aside>${inner}${cite}</aside>`;
+    // `<blockquote expandable>` — collapsed to one line until tapped.
+    const expandable = el.hasAttribute('data-expandable') ? ' expandable' : '';
+    return `<blockquote${expandable}>${inner}${cite}</blockquote>`;
   }
 
   if (tag === 'PRE') {
@@ -277,7 +430,9 @@ function nodeToHtml(node, state, inlineOnly) {
     if (!src) return '';
     state.blocks += 1;
     state.media += 1;
-    return `<img src="${escapeAttr(src)}"/>${figcaptionOf(el)}`;
+    const body = `<img src="${escapeAttr(src)}"${el.hasAttribute('data-spoiler') ? ' tg-spoiler' : ''}/>${figcaptionOf(el)}`;
+    // The spec documents the spoiler attribute on media inside a <figure>.
+    return el.hasAttribute('data-spoiler') ? `<figure>${body}</figure>` : body;
   }
 
   if (tag === 'VIDEO' || tag === 'AUDIO') {
@@ -286,7 +441,17 @@ function nodeToHtml(node, state, inlineOnly) {
     state.blocks += 1;
     state.media += 1;
     const name = tag.toLowerCase();
-    return `<${name} src="${escapeAttr(src)}"></${name}>${figcaptionOf(el)}`;
+    const body = `<${name} src="${escapeAttr(src)}"${el.hasAttribute('data-spoiler') ? ' tg-spoiler' : ''}></${name}>${figcaptionOf(el)}`;
+    return el.hasAttribute('data-spoiler') ? `<figure>${body}</figure>` : body;
+  }
+
+  // `<tg-document src="…"></tg-document>` — a general file block.
+  if (tag === 'TG-DOCUMENT') {
+    const src = safeUrl(el.getAttribute('src') || '', MEDIA_SCHEMES);
+    if (!src) return '';
+    state.blocks += 1;
+    state.media += 1;
+    return `<tg-document src="${escapeAttr(src)}"></tg-document>${figcaptionOf(el)}`;
   }
 
   if (tag === 'DIV' && el.classList) {
@@ -296,6 +461,13 @@ function nodeToHtml(node, state, inlineOnly) {
       return `<tg-math-block>${escapeText(formula)}</tg-math-block>`;
     }
     if (el.classList.contains('tg-gallery')) return galleryToHtml(el, state);
+    if (el.classList.contains('tg-buttons')) return buttonsToHtml(el, state);
+    if (el.classList.contains('tg-thinking')) {
+      state.blocks += 1;
+      const text = (el.getAttribute('data-text') || 'Thinking...').trim() || 'Thinking...';
+      // A draft-only block: Telegram shows it while a reply is being written.
+      return `<tg-thinking>${escapeText(text)}</tg-thinking>`;
+    }
     if (el.classList.contains('tg-map')) {
       const lat = parseFloat(el.getAttribute('data-lat'));
       const lon = parseFloat(el.getAttribute('data-lon'));
@@ -397,6 +569,12 @@ function figcaptionOf(el) {
 }
 
 /**
+ * Serialize a `<table>`.
+ *
+ * Everything the Rich HTML spec supports on a table is carried across: a
+ * caption, the `striped`/`compact` toggles, and per-cell `colspan`, `rowspan`,
+ * `align` and `valign`. Cells keep inline formatting only.
+ *
  * @param {Element} el
  * @param {object} state
  * @returns {string}
@@ -406,19 +584,188 @@ function tableToHtml(el, state) {
   if (!rows.length) return '';
   state.blocks += 1;
 
+  let open = '<table bordered';
+  if (el.hasAttribute('data-striped')) open += ' striped';
+  if (el.hasAttribute('data-compact')) open += ' compact';
+  open += '>';
+
+  const caption = (el.getAttribute('data-caption') || '').trim();
+  if (caption) open += `<caption>${escapeText(caption)}</caption>`;
+
   let body = '';
   for (const tr of rows) {
     const cells = Array.from(tr.querySelectorAll('th, td')).slice(0, LIMITS.TABLE_COLUMNS);
     if (!cells.length) continue;
     let row = '';
     for (const cell of cells) {
+      let attrs = '';
+      const colspan = parseInt(cell.getAttribute('colspan'), 10);
+      if (Number.isFinite(colspan) && colspan > 1) attrs += ` colspan="${colspan}"`;
+      const rowspan = parseInt(cell.getAttribute('rowspan'), 10);
+      if (Number.isFinite(rowspan) && rowspan > 1) attrs += ` rowspan="${rowspan}"`;
+      // Cell alignment set through the table bubble menu rides in as data
+      // attributes; only the values the spec documents go on the wire.
+      const align = (cell.getAttribute('data-align') || '').trim();
+      if (/^(left|center|right)$/.test(align)) attrs += ` align="${align}"`;
+      const valign = (cell.getAttribute('data-valign') || '').trim();
+      if (/^(top|middle|bottom)$/.test(valign)) attrs += ` valign="${valign}"`;
       const name = cell.tagName === 'TH' ? 'th' : 'td';
       // Table cells carry inline formatting only.
-      row += `<${name}>${childrenToHtml(cell, state, true)}</${name}>`;
+      row += `<${name}${attrs}>${childrenToHtml(cell, state, true)}</${name}>`;
     }
     body += `<tr>${row}</tr>`;
   }
-  return body ? `<table bordered>${body}</table>` : '';
+  return body ? `${open}${body}</table>` : '';
+}
+
+/** The button kinds Rich HTML accepts, with the attribute each one reads. */
+export const BUTTON_KINDS = Object.freeze({
+  url: 'url',
+  callback_data: 'data',
+  web_app: 'url',
+  login_url: 'url',
+  switch_inline_query: 'query',
+  switch_inline_query_current_chat: 'query',
+  switch_inline_query_chosen_chat: 'query',
+  copy_text: 'text',
+  disabled: '',
+});
+
+export const BUTTON_STYLES = Object.freeze(['primary', 'success', 'link', 'danger']);
+
+/** Schemes a `url` button may point at — inline mentions included. */
+const BUTTON_URL_SCHEMES = Object.freeze(['http:', 'https:', 'tg:']);
+
+/** The `switch_inline_query_chosen_chat` allow-flags and their attributes. */
+const CHOSEN_CHAT_FLAGS = Object.freeze([
+  ['allowUserChats', 'allow-user-chats'],
+  ['allowBotChats', 'allow-bot-chats'],
+  ['allowGroupChats', 'allow-group-chats'],
+  ['allowChannelChats', 'allow-channel-chats'],
+]);
+
+/**
+ * Rebuild an editor button record from a literal `<tg-button …>` element — the
+ * shape the editor's inline-button node renders, so wire HTML pasted or
+ * round-tripped through the clipboard keeps its fields. The style lives in
+ * `data-style` on editor markup (the DOM `style` attribute is CSS) and in the
+ * wire `style` attribute on pasted markup.
+ * @param {Element} el
+ * @returns {object}
+ */
+function elToRawButton(el) {
+  const declared = el.getAttribute('type') || '';
+  const kind = declared in BUTTON_KINDS ? declared : 'url';
+  const valueKey = BUTTON_KINDS[kind];
+  const wireStyle = el.getAttribute('style') || '';
+  return {
+    type: kind,
+    style: el.getAttribute('data-style') || wireStyle,
+    label: el.textContent || '',
+    value: valueKey ? el.getAttribute(valueKey) || '' : '',
+    forwardText: el.getAttribute('forward-text') || '',
+    requestWriteAccess: el.hasAttribute('request-write-access'),
+    allowUserChats: el.hasAttribute('allow-user-chats'),
+    allowBotChats: el.hasAttribute('allow-bot-chats'),
+    allowGroupChats: el.hasAttribute('allow-group-chats'),
+    allowChannelChats: el.hasAttribute('allow-channel-chats'),
+  };
+}
+
+/**
+ * Serialize one button from its editor record `{ type, style, label, value, … }`.
+ *
+ * Every field is validated against the documented shapes here — a button the
+ * spec would reject is dropped rather than sent, the same policy the media and
+ * link handling follow. Per the 10.3 docs, the `link` style (a borderless
+ * regular link) is allowed only on callback buttons; elsewhere it is not
+ * carried rather than risking an API error.
+ *
+ * @param {object} raw
+ * @returns {string|null} The `<tg-button …>` tag, or null when unusable.
+ */
+function buttonToHtml(raw) {
+  const label = String((raw && raw.label) || '').trim();
+  if (!label) return null;
+  const kind = raw && raw.type in BUTTON_KINDS ? raw.type : 'url';
+
+  let attrs = ` type="${kind}"`;
+  const style = raw && raw.style && BUTTON_STYLES.includes(raw.style) ? raw.style : '';
+  if (style && !(style === 'link' && kind !== 'callback_data')) {
+    attrs += ` style="${escapeAttr(style)}"`;
+  }
+
+  const value = String((raw && raw.value) || '');
+  // `url`, `web_app` and `login_url` all point at a link — the schemes they
+  // may use differ, and `web_app` is strictly https (Telegram's rule for
+  // Mini Apps).
+  const schemeAllowlist =
+    kind === 'web_app' || kind === 'login_url'
+      ? ['https:']
+      : kind === 'url'
+        ? BUTTON_URL_SCHEMES
+        : null;
+
+  if (schemeAllowlist) {
+    const url = safeUrl(value.trim(), schemeAllowlist);
+    if (!url) return null;
+    attrs += ` url="${escapeAttr(url)}"`;
+    if (kind === 'login_url') {
+      const forward = String((raw && raw.forwardText) || '').trim();
+      if (forward) attrs += ` forward-text="${escapeAttr(forward)}"`;
+      if (raw && raw.requestWriteAccess) attrs += ' request-write-access';
+    }
+  } else if (kind === 'callback_data') {
+    const data = value.trim();
+    if (!data) return null;
+    attrs += ` data="${escapeAttr(data)}"`;
+  } else if (kind === 'copy_text') {
+    if (!value) return null;
+    attrs += ` text="${escapeAttr(value)}"`;
+  } else if (kind.startsWith('switch_inline_query')) {
+    attrs += ` query="${escapeAttr(value)}"`;
+  }
+  // `disabled` carries no target at all — the label is the whole button.
+
+  if (kind === 'switch_inline_query_chosen_chat') {
+    for (const [flag, attr] of CHOSEN_CHAT_FLAGS) {
+      if (raw && raw[flag]) attrs += ` ${attr}`;
+    }
+  }
+
+  return `<tg-button${attrs}>${escapeText(label)}</tg-button>`;
+}
+
+/**
+ * Serialize a button row (`div.tg-buttons`).
+ *
+ * The buttons live in a `data-buttons` JSON attribute as
+ * `{ type, style, label, value, … }`.
+ *
+ * @param {Element} el
+ * @param {object} state
+ * @returns {string}
+ */
+function buttonsToHtml(el, state) {
+  let buttons;
+  try {
+    buttons = JSON.parse(el.getAttribute('data-buttons') || '[]');
+  } catch {
+    return '';
+  }
+  if (!Array.isArray(buttons)) return '';
+
+  const list = [];
+  for (const raw of buttons.slice(0, LIMITS.BUTTONS_PER_ROW)) {
+    const tag = buttonToHtml(raw);
+    if (tag) list.push(tag);
+  }
+  if (!list.length) return '';
+
+  state.blocks += 1 + list.length;
+  const align = (el.getAttribute('data-align') || '').trim();
+  const alignAttr = ['left', 'center', 'right'].includes(align) ? ` align="${align}"` : '';
+  return `<tg-button-row${alignAttr}>${list.join('')}</tg-button-row>`;
 }
 
 /**
@@ -454,7 +801,19 @@ function galleryToHtml(el, state) {
  * @returns {object}
  */
 export function buildInputRichMessage(html, options = {}) {
-  const richMessage = { html };
+  // Media picked from the local disk travels in the editor as `tfrfile://`
+  // URLs; here each becomes a `tg://photo?id=` reference and its path climbs
+  // out onto `_files` for the main process — which attaches the real uploads
+  // as multipart parts named `m1`, `m2`, … and then strips the field.
+  const { html: wireHtml, files } = rewriteLocalMedia(html);
+  const richMessage = { html: wireHtml };
+  if (files && files.length) {
+    richMessage.media = files.map(({ id, type }) => ({
+      id,
+      media: { type, media: `attach://${id}` },
+    }));
+    richMessage._files = files.map(({ id, path }) => ({ name: id, path }));
+  }
   if (options.isRtl) richMessage.is_rtl = true;
   if (options.skipEntityDetection) richMessage.skip_entity_detection = true;
   return richMessage;

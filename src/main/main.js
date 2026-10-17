@@ -4,15 +4,21 @@
  * Security: token NEVER leaves main process.
  */
 
-const { app, BrowserWindow, ipcMain, net, safeStorage, session, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, net, protocol, safeStorage, session, shell } =
+  require('electron');
+const { randomUUID } = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const {
   isValidToken,
   isValidChatId,
+  isValidDraftId,
+  isValidDraftName,
   isValidLang,
   isValidMethod,
   isValidBusinessConnectionId,
+  isValidAttachment,
+  localMediaUrlToPath,
 } = require('./security/validation');
 const { attachNavigationGuards } = require('./security/navigation');
 const {
@@ -178,6 +184,71 @@ function focusMainWindow() {
   mainWindow.focus();
 }
 
+/* ── Local media scheme ──
+ *
+ * Media picked from the device is shown in the editor and preview through
+ * `tfrfile://media/<encoded-absolute-path>` URLs. The scheme must be
+ * registered as standard+secure BEFORE the app is ready (below), and the
+ * handler must exist before the window loads. Serving the bytes from the
+ * main process keeps the renderer free of `fs`.
+ */
+const MEDIA_SCHEME = 'tfrfile';
+
+/** One extension → MIME map, just wide enough for user media. */
+const MEDIA_MIME = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.bmp': 'image/bmp',
+  '.avif': 'image/avif',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+  '.mkv': 'video/x-matroska',
+  '.m4v': 'video/x-m4v',
+  '.avi': 'video/x-msvideo',
+  '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+  '.oga': 'audio/ogg',
+  '.opus': 'audio/opus',
+  '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4',
+  '.flac': 'audio/flac',
+  '.aac': 'audio/aac',
+  '.pdf': 'application/pdf',
+  '.zip': 'application/zip',
+};
+
+/**
+ * Serve one picked file. The whole path rides inside the URL, so the
+ * editor document and the saved drafts survive restarts without any
+ * session-level registry.
+ */
+function serveLocalMedia(request) {
+  const file = localMediaUrlToPath(request.url);
+  if (!file) return new Response('Bad media URL', { status: 400 });
+  try {
+    const data = fs.readFileSync(file);
+    const mime = MEDIA_MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
+    return new Response(data, { headers: { 'content-type': mime } });
+  } catch {
+    return new Response('Not found', { status: 404 });
+  }
+}
+
+// Register the scheme privileges before the app is ready, as Electron demands.
+// `standard` keeps the URL well-formed in the renderer; `secure` marks it as a
+// trustworthy context; `stream` lets <video>/<audio> play instead of buffering
+// the whole file into one response.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: MEDIA_SCHEME,
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true },
+  },
+]);
+
 // One process only. Two copies of the app hold the same installed files open,
 // which is how a Windows upgrade ends up with "TelegramFreeRich cannot be
 // closed" — the installer closes one and the other keeps the lock.
@@ -187,6 +258,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', focusMainWindow);
 
   app.whenReady().then(async () => {
+    protocol.handle(MEDIA_SCHEME, serveLocalMedia);
     loadSecureSettings();
     await applyProxy();
     createWindow();
@@ -226,7 +298,16 @@ ipcMain.handle('tg-api', async (_event, { method, body }) => {
 
   try {
     const url = `https://api.telegram.org/bot${secureToken}/${method}`;
-    return await tgRequest(url, body);
+    // Local media picked on the device rides as `_files` beside the fields it
+    // belongs to; it becomes multipart form-data, not JSON. Anything malformed
+    // is dropped so a hand-tampered body can never point the read at a
+    // relative path — `fs` here is absolute-path only.
+    const rawAttachments = Array.isArray(body._files) ? body._files : null;
+    const attachments = rawAttachments
+      ? rawAttachments.filter((entry) => isValidAttachment(entry) && fs.existsSync(entry.path))
+      : null;
+    if (rawAttachments) delete body._files;
+    return await tgRequest(url, body, attachments);
   } catch (e) {
     return { ok: false, description: e.message || 'Network error' };
   }
@@ -357,4 +438,143 @@ ipcMain.handle('window-control', async (event, { action } = {}) => {
     default:
       return false;
   }
+});
+
+// ===================== Local Drafts =====================
+
+/**
+ * Saved messages live beside the encrypted settings as plain JSON — the *body*
+ * of a draft is not a secret (the token is what safeStorage guards), and a
+ * plain file keeps drafts readable after an OS keychain change.
+ */
+
+/** The hard size caps a single saved draft may carry. */
+const DRAFT_CAPS = {
+  NAME: 80,
+  HTML: 4 * 32768 + 8192,
+};
+
+function getDraftsPath() {
+  const dir = app.getPath('userData');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, 'drafts.json');
+}
+
+function loadDrafts() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(getDraftsPath(), 'utf8'));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeDrafts(list) {
+  try {
+    fs.writeFileSync(getDraftsPath(), JSON.stringify(list, null, 2), 'utf8');
+    return true;
+  } catch (e) {
+    console.error('[Drafts] Failed to save:', e.message);
+    return false;
+  }
+}
+
+/** The list entry sent back to the renderer — never the body itself. */
+const draftSummary = (draft) => ({
+  id: draft.id,
+  name: draft.name,
+  savedAt: draft.savedAt,
+  isRtl: !!draft.isRtl,
+});
+
+ipcMain.handle('drafts-list', async () => {
+  return { ok: true, drafts: loadDrafts().map(draftSummary) };
+});
+
+ipcMain.handle('drafts-save', async (_event, { name, html, isRtl } = {}) => {
+  if (!isValidDraftName(name)) {
+    return { ok: false, description: 'Invalid draft name' };
+  }
+  if (typeof html !== 'string' || !html.trim() || html.length > DRAFT_CAPS.HTML) {
+    return { ok: false, description: 'Nothing to save in this draft' };
+  }
+  const drafts = loadDrafts();
+  const draft = {
+    id: randomUUID(),
+    name: String(name).trim().slice(0, DRAFT_CAPS.NAME),
+    html: String(html).slice(0, DRAFT_CAPS.HTML),
+    isRtl: !!isRtl,
+    savedAt: Date.now(),
+  };
+  writeDrafts([draft, ...drafts].slice(0, 100));
+  return { ok: true, drafts: loadDrafts().map(draftSummary) };
+});
+
+ipcMain.handle('drafts-load', async (_event, { id } = {}) => {
+  if (!isValidDraftId(id)) {
+    return { ok: false, description: 'Invalid draft ID' };
+  }
+  const draft = loadDrafts().find((entry) => entry.id === id);
+  if (!draft) return { ok: false, description: 'Draft not found' };
+  return { ok: true, draft };
+});
+
+ipcMain.handle('drafts-delete', async (_event, { id } = {}) => {
+  if (!isValidDraftId(id)) {
+    return { ok: false, description: 'Invalid draft ID' };
+  }
+  const remaining = loadDrafts().filter((entry) => entry.id !== id);
+  const removed = writeDrafts(remaining);
+  if (!removed) return { ok: false, description: 'Failed to save draft file' };
+  return { ok: true, drafts: remaining.map(draftSummary) };
+});
+
+/** The file filters each media picker offers. */
+const PICK_FILTERS = {
+  media: [
+    { name: 'Media', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'avif', 'mp4', 'webm', 'mov', 'mkv', 'm4v', 'avi'] },
+  ],
+  audio: [
+    { name: 'Audio', extensions: ['mp3', 'ogg', 'oga', 'wav', 'm4a', 'flac', 'opus', 'aac'] },
+  ],
+  document: [{ name: 'All files', extensions: ['*'] }],
+};
+
+/** Rich messages cap a document at 50 MB; be no more permissive than Telegram. */
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+
+/**
+ * The device file picker behind "insert media". Native dialog, multi-select;
+ * the renderer turns the returned absolute paths into `tfrfile://` URLs.
+ */
+ipcMain.handle('pick-media', async (_event, { kind = 'media', source } = {}) => {
+  const filters = PICK_FILTERS[kind] || PICK_FILTERS.media;
+  let files = [];
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: source || 'Choose files',
+      properties: ['openFile', 'multiSelections'],
+      filters,
+    });
+    if (result.canceled) return { ok: true, files: [] };
+    files = result.filePaths || [];
+  } catch (e) {
+    return { ok: false, description: e.message || 'Dialog failed' };
+  }
+
+  // Nothing that could not actually be read leaves here: drop missing files
+  // and anything beyond Telegram's size cap, and say so when all were dropped.
+  const usable = [];
+  for (const file of files) {
+    try {
+      const stat = fs.statSync(file);
+      if (stat.isFile() && stat.size > 0 && stat.size <= MAX_UPLOAD_BYTES) usable.push(file);
+    } catch {
+      /* unreadable — silently dropped, like a dialog cancel */
+    }
+  }
+  if (files.length && !usable.length) {
+    return { ok: false, description: 'No file could be added (missing or too large)' };
+  }
+  return { ok: true, files: usable };
 });

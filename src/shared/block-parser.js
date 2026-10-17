@@ -38,6 +38,7 @@ const TAG_TO_BLOCK = {
   IMG: BlockType.PHOTO,
   VIDEO: BlockType.VIDEO,
   AUDIO: BlockType.AUDIO,
+  'TG-DOCUMENT': BlockType.DOCUMENT,
 };
 
 /**
@@ -78,6 +79,10 @@ export function parseBlockElement(el) {
         longitude: parseFloat(el.getAttribute('data-lon')) || 0,
       };
     }
+    if (el.classList.contains('tg-buttons')) return parseButtons(el);
+    if (el.classList.contains('tg-thinking')) {
+      return { type: BlockType.THINKING, text: el.getAttribute('data-text') || 'Thinking...' };
+    }
     return null;
   }
 
@@ -96,10 +101,12 @@ export function parseBlockElement(el) {
       };
 
     // Both quote kinds may name a source — Rich HTML puts it in a <cite>.
+    // An ordinary quote may also be expandable, which collapses it to one line.
     case BlockType.BLOCKQUOTE:
       return {
         type: el.hasAttribute('data-pullquote') ? BlockType.PULLQUOTE : BlockType.BLOCKQUOTE,
         attribution: el.getAttribute('data-attribution') || '',
+        expandable: el.hasAttribute('data-expandable'),
         ...textContentOf(el),
       };
 
@@ -115,22 +122,26 @@ export function parseBlockElement(el) {
     }
 
     // A caption travels as data-caption, with an optional data-credit that
-    // becomes the <cite> inside the <figcaption>.
+    // becomes the <cite> inside the <figcaption>. A media spoiler is the
+    // `tg-spoiler` attribute Rich HTML puts on the media itself.
     case BlockType.PHOTO:
       return {
         type: BlockType.PHOTO,
         url: mediaUrl(el.getAttribute('src')),
         caption: el.getAttribute('data-caption') || el.getAttribute('alt') || '',
         credit: el.getAttribute('data-credit') || '',
+        spoiler: el.hasAttribute('data-spoiler'),
       };
 
     case BlockType.VIDEO:
     case BlockType.AUDIO:
+    case BlockType.DOCUMENT:
       return {
         type,
         url: mediaUrl(el.getAttribute('src')),
         caption: el.getAttribute('data-caption') || '',
         credit: el.getAttribute('data-credit') || '',
+        spoiler: el.hasAttribute('data-spoiler'),
       };
 
     case BlockType.TABLE:
@@ -170,13 +181,22 @@ export function parseAllBlocks(container) {
  */
 function parseTable(el) {
   const rows = Array.from(el.querySelectorAll('tr'));
-  if (rows.length === 0) return { type: BlockType.TABLE, header: [], rows: [] };
+  if (rows.length === 0) {
+    return { type: BlockType.TABLE, header: [], rows: [] };
+  }
 
   const header = Array.from(rows[0].querySelectorAll('th, td')).map((c) => c.textContent || '');
   const bodyRows = rows
     .slice(1)
     .map((tr) => Array.from(tr.querySelectorAll('td')).map((c) => c.textContent || ''));
-  return { type: BlockType.TABLE, header, rows: bodyRows };
+  return {
+    type: BlockType.TABLE,
+    header,
+    rows: bodyRows,
+    caption: (el.getAttribute('data-caption') || '').trim(),
+    striped: el.hasAttribute('data-striped'),
+    compact: el.hasAttribute('data-compact'),
+  };
 }
 
 /**
@@ -207,10 +227,25 @@ function parseList(el) {
     };
   }
 
+  // The ordered-list extras Rich HTML documents: start number, marker type,
+  // reversed direction and per-item explicit values. They are only added when
+  // set, so the plain `{ text }` item shape is unchanged in the common case.
+  const startAttr = parseInt(el.getAttribute('start'), 10);
+  const listType = (el.getAttribute('data-list-type') || '').trim();
+  const reversed = el.hasAttribute('data-reversed');
+
   return {
     type: BlockType.LIST,
     style: el.tagName === 'OL' ? 'numbered' : 'bullet',
-    items: items.map((li) => ({ text: li.textContent || '' })),
+    ...(Number.isFinite(startAttr) && startAttr > 0 ? { start: startAttr } : {}),
+    ...(listType ? { listType } : {}),
+    ...(reversed ? { reversed: true } : {}),
+    items: items.map((li) => {
+      const value = parseInt(li.getAttribute('data-value'), 10);
+      const item = { text: li.textContent || '' };
+      if (Number.isFinite(value) && value > 0) item.value = value;
+      return item;
+    }),
   };
 }
 
@@ -256,5 +291,30 @@ function parseGallery(el) {
     images,
     caption: el.getAttribute('data-caption') || '',
     credit: el.getAttribute('data-credit') || '',
+  };
+}
+
+/**
+ * Parse a button row `<div>` into a buttons Block.
+ *
+ * The buttons ride in a `data-buttons` JSON attribute; malformed JSON or
+ * entries without a label are dropped rather than shown as broken buttons.
+ * @param {Element} el
+ * @returns {object}
+ */
+function parseButtons(el) {
+  let buttons;
+  try {
+    buttons = JSON.parse(el.getAttribute('data-buttons') || '[]');
+  } catch {
+    buttons = [];
+  }
+  return {
+    type: BlockType.BUTTONS,
+    // Telegram lays an unaligned row out by its own default.
+    align: ['left', 'center', 'right'].includes(el.getAttribute('data-align') || '')
+      ? el.getAttribute('data-align')
+      : '',
+    buttons: (Array.isArray(buttons) ? buttons : []).filter((b) => b && b.label),
   };
 }

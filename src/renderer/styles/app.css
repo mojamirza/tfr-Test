@@ -8,9 +8,10 @@
   display: flex;
   align-items: center;
   height: var(--titlebar-h);
-  background: var(--titlebar);
+  background: var(--bg);
+  border-bottom: 1px solid var(--outline);
   flex-shrink: 0;
-  padding-inline-start: 6px;
+  padding-inline-start: 8px;
   -webkit-app-region: drag;
 }
 
@@ -29,12 +30,12 @@
 
 .tl-btn {
   position: relative;
-  width: 26px;
-  height: 22px;
+  width: 28px;
+  height: 24px;
   border: none;
   background: transparent;
   color: var(--text-muted);
-  border-radius: 6px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -49,6 +50,7 @@
 
 .tl-btn.active {
   color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .tl-dot {
@@ -59,7 +61,7 @@
   height: 5px;
   border-radius: 50%;
   background: var(--danger);
-  box-shadow: 0 0 0 1.5px var(--titlebar);
+  box-shadow: 0 0 0 1.5px var(--bg);
 }
 
 .tl-dot.on {
@@ -67,7 +69,7 @@
 }
 
 .win-btn {
-  width: 44px;
+  width: 46px;
   height: var(--titlebar-h);
   border: none;
   background: transparent;
@@ -115,35 +117,34 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px 14px;
+  padding: 12px 18px 14px;
   background: var(--bg);
   flex-shrink: 0;
 }
 
 .bb-btn {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
-  border: 1px solid var(--outline);
+  border: none;
   background: transparent;
   color: var(--icon);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  transition: background 0.14s ease, color 0.14s ease;
 }
 
 .bb-btn:hover {
   background: var(--hover);
   color: var(--text);
-  border-color: var(--outline-strong);
 }
 
 .bb-btn.active {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
   color: var(--accent);
-  border-color: var(--accent);
 }
 
 .bb-spacer {
@@ -158,9 +159,9 @@
 .bb-mode {
   font-size: 11px;
   color: var(--accent);
-  border: 1px solid var(--outline);
-  padding: 3px 8px;
-  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  padding: 4px 10px;
+  border-radius: 999px;
   white-space: nowrap;
 }
 
@@ -180,28 +181,32 @@
   height: 46px;
   border-radius: 50%;
   border: none;
-  background: var(--send);
+  background: linear-gradient(160deg, var(--send-hover), var(--send));
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.12s, transform 0.12s;
   flex-shrink: 0;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--send) 34%, transparent);
+  transition: filter 0.14s ease, transform 0.14s ease, box-shadow 0.14s ease;
 }
 
 .bb-send:hover:not(:disabled) {
-  background: var(--send-hover);
-  transform: scale(1.04);
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--send) 42%, transparent);
 }
 
 .bb-send:active:not(:disabled) {
-  transform: scale(0.96);
+  transform: scale(0.95);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--send) 30%, transparent);
 }
 
 .bb-send:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* ═══════════════════════════ Overlays ═══════════════════════════ */
@@ -209,8 +214,8 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(3px);
+  background: rgba(6, 12, 18, 0.58);
+  backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -227,8 +232,8 @@
   flex-direction: column;
   background: var(--menu);
   border: 1px solid var(--outline);
-  border-radius: 14px;
-  box-shadow: var(--shadow);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
 }
 
 .sheet-head {
@@ -242,19 +247,21 @@
 .sheet-head h3 {
   font-size: 15px;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .sheet-close {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: transparent;
   color: var(--text-dim);
-  border-radius: 8px;
+  border-radius: 9px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.12s, color 0.12s;
 }
 
 .sheet-close:hover {
@@ -278,19 +285,21 @@
 
 .sheet-body input,
 .sheet-body select {
-  height: 34px;
-  padding: 0 10px;
+  height: 36px;
+  padding: 0 11px;
   border: 1px solid var(--outline);
-  border-radius: 9px;
+  border-radius: 10px;
   background: var(--surface2);
   color: var(--text);
   outline: none;
   user-select: text;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
 }
 
 .sheet-body input:focus,
 .sheet-body select:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 2.5px var(--ring);
 }
 
 .sheet-row {
@@ -342,13 +351,13 @@
   max-width: 100%;
   background: var(--menu);
   border: 1px solid var(--outline);
-  border-radius: 14px;
-  box-shadow: var(--shadow);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
   padding: 18px;
 }
 
 .dialog-title {
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 600;
   margin-bottom: 12px;
 }
@@ -369,22 +378,25 @@
   color: var(--text);
   outline: none;
   user-select: text;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease;
 }
 
 .dialog-input:focus {
   border-color: var(--accent);
+  box-shadow: 0 0 0 2.5px var(--ring);
+  outline: none;
 }
 
 .dialog-btn {
   height: 32px;
   padding: 0 14px;
-  border-radius: 9px;
+  border-radius: 10px;
   border: 1px solid var(--outline);
   background: transparent;
   color: var(--text);
   font-size: 13px;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.14s ease, border-color 0.14s ease;
 }
 
 .dialog-btn:hover:not(:disabled) {
@@ -410,6 +422,294 @@
   cursor: not-allowed;
 }
 
+.dialog-btn.small {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+.dialog-btn.danger {
+  color: var(--danger);
+}
+
+.dialog-btn.block {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* ─────────── Buttons editor (the `askButtons` dialog body) ─────────── */
+
+.dialog-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(440px, calc(100vh - 200px));
+  overflow-y: auto;
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+.dialog-buttons-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.dialog-buttons-head .dialog-input {
+  width: 150px;
+  height: 30px;
+}
+
+/* One button of the row — a quiet card with the live preview above it. */
+.btn-row {
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-md);
+  padding: 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: color-mix(in srgb, var(--surface2) 55%, transparent);
+}
+
+.btn-row-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-row-flex {
+  flex: 1;
+}
+
+/* The live preview chip — tinted exactly the way Telegram paints the style. */
+.btn-row-preview {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+  border: 1px solid var(--outline-strong);
+  border-radius: 8px;
+  background: var(--surface2);
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+.btn-row-preview[data-style='primary'] {
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface2));
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  color: var(--accent);
+}
+
+.btn-row-preview[data-style='success'] {
+  background: color-mix(in srgb, var(--success) 20%, var(--surface2));
+  border-color: color-mix(in srgb, var(--success) 55%, transparent);
+  color: var(--success);
+}
+
+.btn-row-preview[data-style='danger'] {
+  background: color-mix(in srgb, var(--danger) 18%, var(--surface2));
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  color: var(--danger);
+}
+
+.btn-row-preview[data-style='link'] {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.btn-row-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.btn-row .dialog-input {
+  height: 30px;
+  font-size: 12.5px;
+}
+
+.btn-row-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.btn-row-check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-dim);
+  user-select: none;
+}
+
+.btn-row-check input {
+  accent-color: var(--accent);
+}
+
+/* The theme (colour) picker — a dot per Telegram button style. */
+.btn-row-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.style-swatch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.style-swatch:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.style-swatch.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--text);
+}
+
+/* Quiet explanations under the fields they qualify. */
+.style-note,
+.dialog-hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
+.swatch-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid var(--outline-strong);
+  background: var(--surface2);
+}
+
+.swatch-dot[data-swatch='primary'] {
+  background: var(--accent);
+  border-color: transparent;
+}
+
+.swatch-dot[data-swatch='success'] {
+  background: var(--success);
+  border-color: transparent;
+}
+
+.swatch-dot[data-swatch='danger'] {
+  background: var(--danger);
+  border-color: transparent;
+}
+
+.swatch-dot[data-swatch='link'] {
+  background: transparent;
+  border-color: var(--accent);
+}
+
+/* ═══════════════════════════ Local drafts ═══════════════════════════ */
+
+.drafts-empty {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  padding: 12px 2px;
+}
+
+.drafts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  max-height: min(380px, calc(100vh - 260px));
+  overflow-y: auto;
+}
+
+.drafts-item {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface2) 45%, transparent);
+  transition: border-color 0.14s ease;
+}
+
+.drafts-item:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--outline));
+}
+
+.drafts-open {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: start;
+  padding: 9px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.drafts-open:hover {
+  background: var(--hover);
+}
+
+.drafts-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drafts-meta {
+  margin-inline-start: auto;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.drafts-delete {
+  border: none;
+  border-inline-start: 1px solid var(--outline);
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.drafts-delete:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+}
+
 /* ═══════════════════════════ Toasts ═══════════════════════════ */
 
 #toast-container {
@@ -426,10 +726,11 @@
 }
 
 .toast {
-  padding: 7px 14px;
-  border-radius: 10px;
+  padding: 8px 15px;
+  border-radius: 11px;
   font-size: 12.5px;
-  background: var(--surface3);
+  background: color-mix(in srgb, var(--surface3) 86%, transparent);
+  backdrop-filter: var(--pop-blur);
   border: 1px solid var(--outline);
   color: var(--text);
   box-shadow: var(--shadow);

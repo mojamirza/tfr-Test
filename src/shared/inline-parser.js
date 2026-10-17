@@ -41,6 +41,10 @@ function markForElement(el) {
   if (el.tagName === 'SPAN') {
     if (el.hasAttribute('data-spoiler')) return InlineType.SPOILER;
     if (el.hasAttribute('data-inline-math')) return InlineType.MATH;
+    if (el.hasAttribute('data-emoji-id')) return InlineType.CUSTOM_EMOJI;
+    if (el.hasAttribute('data-tg-time')) return InlineType.DATE_TIME;
+    if (el.hasAttribute('data-tg-reference')) return InlineType.REFERENCE;
+    if (el.hasAttribute('data-tg-anchor')) return InlineType.ANCHOR;
     return null;
   }
   return TAG_TO_MARK[el.tagName] || null;

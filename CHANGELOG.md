@@ -1,5 +1,83 @@
 # Changelog
 
+## [5.6.0] - 2026-10-17
+
+### Added — the Premium article features, driven from the Bot API
+The rich-message API lets a bot carry almost everything Telegram's own Premium composer can.
+Every one of these is editable in the app, serialized as documented Rich HTML, previewed live and
+covered by tests:
+
+- **Inline keyboard buttons** — `<tg-button-row>` rows with URL, callback data, Mini App, login,
+  switch-inline (including the chosen-chat filters), copy-text and disabled kinds, Telegram's four
+  styles, and row alignment; a structured dialog edits the whole row in place
+- **Inline buttons inside text** (Bot API 10.3) — `<tg-button …>` (`RichTextButton`) can ride
+  inside a paragraph instead of a `<tg-button-row>` block: one button, same kinds and styles,
+  edited through its own compact dialog; the wand's "Inline button in text" inserts it, clicking
+  the chip and invoking the palette edits or removes it
+- The button serializer enforces the documented 10.3 rule that the `link` style may only travel
+  on callback buttons — for any other kind the style is dropped rather than risking an API error
+- **Custom (Premium) emoji** — `<tg-emoji emoji-id>` with a Unicode fallback
+- **Formatted date-time** — `<tg-time unix format>`, accepted as a unix timestamp or any parseable
+  date, with the documented `w`/`D`/`T`-family format string
+- **Anchors and references** — `<a name>` markers and `<tg-reference name>` spans joined by the
+  footnote `#name` links
+- **Inline mentions** — `tg://user?id=` links with a typed label
+- **Thinking placeholder** — `<tg-thinking>` for draft-mode replies
+- **Expandable quote** — the `expandable` flag on `<blockquote>`
+- **Ordered-list extras** — `start`, the `a A i I` marker style, reversed numbering and explicit
+  per-item values
+- **Table extras** — caption, striped and compact rows (10.3's `is_compact`), per-cell
+  `colspan`/`rowspan` and horizontal/vertical alignment
+- **Document media** — `<tg-document src>` file tiles (10.3), alongside photo/video/audio, with
+  `tg://document?id=` upload references
+- **Media spoilers** — the `tg-spoiler` attribute blurs media in editor and preview alike
+- **`skip_entity_detection`** — a toggle in the send menu that sends the flag, keeping hashtags and
+  phone numbers as plain text
+- The whole rich-message surface is re-checked against **Bot API 10.3**: the button classes
+  (`RichMessageButton`, `RichTextButton`, the row `InputRichBlockButtons`), `is_compact`,
+  expandable quotation and the document forms are all covered
+
+### Added — media straight from the device
+- **Pick photos, videos, audio and documents from local storage** — a native file dialog backs the
+  media menu; several picked files become a slideshow, and a picked `.gif` uploads as an animation
+  while a raw `.ogg` uploads as a voice note
+- Uploads ride the documented `rich_message.media` list: each local file becomes a `tg://…?id=`
+  reference and is attached as multipart `form-data`, hand-built over the Chromium network stack so
+  system-proxy setups keep working
+- The editor and preview display local files through the app's own `tfrfile://` protocol — no
+  upload is needed to see them, and drafts keep the reference so they survive restarts
+
+### Added — local drafts
+- **Save and load drafts** with their exact Rich HTML and RTL flag through new IPC channels;
+  drafts are capped (40 characters per name, 1 MiB of HTML, 100 drafts) and validated in the main
+  process
+- The current message is **autosaved** locally and offered back after a restart
+- Deleting a draft is confirmed by a visible toast, so success and failure are both audible
+
+### Changed — a full visual redesign
+- A modern-minimal language across the app: ghost icon buttons on tinted active states instead
+  of outlined pills, layered surfaces with one soft shadow scale, glass popovers (backdrop blur)
+  for menus and the table bubble — now a floating pill — a floating card toolbar with group
+  dividers, a centered document column in the editor, a gradient send button with a glow,
+  rounder dialogs and sheets, and a flat title bar
+
+### Fixed — tables in right-to-left messages
+- Table cells now follow the writing direction (`text-align: start`) instead of being pinned left,
+  so a Persian header reads from the right edge
+- The column-resize handle is mirrored to the trailing edge in RTL mode — previously it sat on the
+  wrong border and dragged the wrong neighbour
+
+### Fixed — cleared content resurrecting itself
+- Clearing the editor purges the autosave copy immediately; previously a pending write could
+  survive the clear and resurrect the message on the next launch
+
+### Fixed — the button row lost its alignment on every HTML round-trip
+- The buttons-row node rendered only its chips; the stored `align` never reached the editor DOM,
+  so saving/reloading a message (autosave, local draft, copy-paste) silently reset row alignment
+  to default. The date-time node lost its `format` the same way — both now render what they parse
+- The editor's inline chip stores its theme in `data-style`, not the DOM `style` attribute,
+  which browsers normalise into empty CSS
+
 ## [5.5.0] - 2026-07-27
 
 A full review of the codebase. No new features — ten defects found and fixed, each one verified

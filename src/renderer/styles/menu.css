@@ -1,5 +1,6 @@
 /**
  * Popovers: dropdown menus, the table bubble menu and the insert palette.
+ * All of them float on a glass card — blur, one hairline, one soft shadow.
  */
 
 .popover {
@@ -7,11 +8,12 @@
   z-index: 300;
   min-width: 210px;
   max-width: min(360px, calc(100vw - 16px));
-  background: var(--menu);
+  background: color-mix(in srgb, var(--menu) 88%, transparent);
+  backdrop-filter: var(--pop-blur);
   border: 1px solid var(--outline);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
-  padding: 5px;
+  padding: 6px;
   transition: opacity 0.1s ease-out;
   animation: pop-in 0.12s ease-out;
 }
@@ -39,9 +41,18 @@
 .menu-title {
   font-size: 10.5px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   color: var(--text-muted);
-  padding: 6px 10px 4px;
+  padding: 7px 10px 5px;
+}
+
+/* A quiet divider inside a menu — the send-mode popover uses one to keep the
+   `skip_entity_detection` toggle apart from the three real send modes. */
+.menu-sep {
+  display: block;
+  height: 1px;
+  margin: 5px 8px;
+  background: var(--outline);
 }
 
 .menu-item {
@@ -49,16 +60,16 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  min-height: 34px;
+  min-height: 36px;
   padding: 4px 10px;
   border: none;
   background: transparent;
   color: var(--text);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   text-align: start;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .menu-item:hover:not(:disabled) {
@@ -71,6 +82,7 @@
 }
 
 .menu-item.active {
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
   color: var(--accent);
 }
 
@@ -119,7 +131,7 @@
   color: var(--text-dim);
   font-weight: 600;
   border-bottom: 1px solid var(--outline);
-  border-radius: 8px 8px 0 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   margin-bottom: 4px;
 }
 
@@ -151,9 +163,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 32px;
-  padding: 0 10px;
-  border-radius: 10px;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: var(--radius-md);
   background: var(--surface2);
   color: var(--text-muted);
   margin-bottom: 8px;
@@ -188,37 +200,57 @@
 
 /* ─────────────────────── Table bubble menu ─────────────────────── */
 
+/* A slim floating pill above the table the caret is in. Everything is
+   icon-only with tooltips; the styling options live behind the layout
+   button. */
 .table-bubble {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 4px;
-  background: var(--menu);
+  background: color-mix(in srgb, var(--menu) 88%, transparent);
+  backdrop-filter: var(--pop-blur);
   border: 1px solid var(--outline);
-  border-radius: 11px;
+  border-radius: 999px;
   box-shadow: var(--shadow);
 }
 
-.table-bubble-btn {
+.table-bubble-icon {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 26px;
-  padding: 0 8px;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
   border: none;
-  border-radius: 7px;
+  border-radius: 999px;
   background: transparent;
-  color: var(--text);
-  font-size: 12px;
+  color: var(--text-dim);
   cursor: pointer;
-  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
-.table-bubble-btn:hover {
+.table-bubble-icon:hover:not(:disabled) {
   background: var(--hover);
+  color: var(--text);
 }
 
-.table-bubble-btn.danger {
+.table-bubble-icon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.table-bubble-icon.active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.table-bubble-icon.danger {
+  color: var(--text-dim);
+}
+
+.table-bubble-icon.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
   color: var(--danger);
 }
 
@@ -226,5 +258,82 @@
   width: 1px;
   height: 16px;
   background: var(--outline);
-  margin: 0 2px;
+  margin: 0 3px;
+}
+
+/* The layout popover — anchored to the bar, closed by an outside click. */
+.table-bubble-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  inset-inline-start: 0;
+  min-width: 210px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--menu) 90%, transparent);
+  backdrop-filter: var(--pop-blur);
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  z-index: 30;
+}
+
+.table-bubble-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.table-bubble-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  gap: 2px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--outline);
+}
+
+.table-bubble-opts {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.table-bubble-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  padding: 5px 8px;
+  text-align: start;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.table-bubble-toggle:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.table-bubble-toggle.active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}
+
+.table-bubble-dot {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--text-muted);
+  border-radius: 50%;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.table-bubble-toggle.active .table-bubble-dot {
+  background: var(--accent);
+  border-color: var(--accent);
 }

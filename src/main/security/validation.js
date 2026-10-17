@@ -58,6 +58,8 @@ function isValidMethod(method) {
   return typeof method === 'string' && ALLOWED_METHODS.includes(method);
 }
 
+const path = require('path');
+
 /**
  * Validate a business connection ID — the opaque token `sendChecklist` needs.
  * Telegram does not document its shape, so this only bounds the length and
@@ -69,6 +71,74 @@ function isValidBusinessConnectionId(id) {
   return typeof id === 'string' && /^[A-Za-z0-9_-]{4,128}$/.test(id);
 }
 
+/**
+ * Validate a local-draft id — a UUID the main process minted when it saved.
+ * @param {string} id
+ * @returns {boolean}
+ */
+function isValidDraftId(id) {
+  return (
+    typeof id === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)
+  );
+}
+
+/**
+ * Validate a local-draft name — bounded length, no control characters.
+ * @param {*} name
+ * @returns {boolean}
+ */
+function isValidDraftName(name) {
+  return (
+    typeof name === 'string' &&
+    name.trim().length > 0 &&
+    name.length <= 80 &&
+    // No control characters — [...] would trip ESLint's no-control-regex fire
+    // guard against the same range, so the test stays explicit and readable.
+    !String(name)
+      .split('')
+      .some((ch) => ch.codePointAt(0) < 0x20)
+  );
+}
+
+/**
+ * The local-media URL the renderer embeds — `tfrfile://media/<encoded path>` —
+ * decoded back to an absolute path. Keep in step with `localUrlToPath` in the
+ * shared rich-HTML serializer (that module is ESM, main is CommonJS, so the
+ * ten lines are mirrored here rather than imported).
+ * @param {string} url
+ * @returns {string}
+ */
+function localMediaUrlToPath(url) {
+  const prefix = 'tfrfile://media/';
+  if (typeof url !== 'string' || !url.startsWith(prefix)) return '';
+  try {
+    return decodeURIComponent(url.slice(prefix.length)).replace(/[?#].*$/, '');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Validate one multipart attachment entry the renderer asks main to upload —
+ * bounded filename charset (the spec's media-id alphabet), nothing weird in
+ * the path. Existence and size are checked by the caller, where `fs` sits.
+ * @param {*} entry
+ * @returns {boolean}
+ */
+function isValidAttachment(entry) {
+  return (
+    !!entry &&
+    typeof entry === 'object' &&
+    typeof entry.name === 'string' &&
+    /^[A-Za-z0-9_-]{1,64}$/.test(entry.name) &&
+    typeof entry.path === 'string' &&
+    path.isAbsolute(entry.path) &&
+    entry.path.length > 0 &&
+    entry.path.length <= 1024
+  );
+}
+
 module.exports = {
   ALLOWED_METHODS,
   isValidToken,
@@ -76,4 +146,8 @@ module.exports = {
   isValidLang,
   isValidMethod,
   isValidBusinessConnectionId,
+  isValidDraftId,
+  isValidDraftName,
+  localMediaUrlToPath,
+  isValidAttachment,
 };

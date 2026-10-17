@@ -12,10 +12,13 @@ import {
   LINK_ACTION,
   LIST_ACTIONS,
   MEDIA_ACTIONS,
+  PREMIUM_ACTIONS,
   TABLE_ACTIONS,
+  TABLE_CELL_ACTIONS,
   TEXT_STYLE_ACTIONS,
   allActions,
   filterActions,
+  insertDateTime,
   insertFormula,
   insertLink,
   insertTable,
@@ -77,6 +80,8 @@ const GROUPS = {
   list: LIST_ACTIONS,
   media: MEDIA_ACTIONS,
   table: TABLE_ACTIONS,
+  premium: PREMIUM_ACTIONS,
+  cell: TABLE_CELL_ACTIONS,
   extra: EXTRA_ACTIONS,
 };
 
@@ -120,17 +125,38 @@ describe('registry shape', () => {
 /* ═══════════════════ 1. Formatting (Aa) ═══════════════════ */
 
 describe('the Aa menu', () => {
-  it('lists heading, text, quote, pull quote, attribution, code block, footer and divider', () => {
+  it('lists heading, text, quote, expandable quote, pull quote, attribution, code block, footer and divider', () => {
     expect(TEXT_STYLE_ACTIONS.map((a) => a.id)).toEqual([
       'heading',
       'paragraph',
       'blockquote',
+      'expandableQuote',
       'pullquote',
       'attribution',
       'codeBlock',
       'footer',
       'divider',
     ]);
+  });
+
+  it('flips the expandable flag on a quote the caret already sits in', () => {
+    const action = TEXT_STYLE_ACTIONS.find((a) => a.id === 'expandableQuote');
+    const editor = mockEditor({ active: ['blockquote'] });
+    action.run(editor, mockCtx());
+    expect(editor.names()).toEqual(['toggleQuoteExpandable']);
+  });
+
+  it('wraps a new expandable quote around the selection', () => {
+    const action = TEXT_STYLE_ACTIONS.find((a) => a.id === 'expandableQuote');
+    const editor = mockEditor();
+    action.run(editor, mockCtx());
+    expect(editor.names()).toEqual(['toggleBlockquote', 'toggleQuoteExpandable']);
+  });
+
+  it('reports the expandable flag from the quote attributes', () => {
+    const action = TEXT_STYLE_ACTIONS.find((a) => a.id === 'expandableQuote');
+    expect(action.isActive(mockEditor({ attrs: { expandable: true } }))).toBe(true);
+    expect(action.isActive(mockEditor({ attrs: {} }))).toBe(false);
   });
 
   it('offers the attribution only inside a quote', () => {
@@ -244,12 +270,15 @@ describe('the B menu', () => {
 /* ═══════════════════ 3. Lists ═══════════════════ */
 
 describe('the list menu', () => {
-  it('lists ordered, bulleted, checklist and details', () => {
+  it('lists ordered, bulleted, checklist, details and the ordered-list extras', () => {
     expect(LIST_ACTIONS.map((a) => a.id)).toEqual([
       'orderedList',
       'bulletList',
       'checklist',
       'details',
+      'listType',
+      'listReversed',
+      'listValue',
     ]);
   });
 
@@ -259,12 +288,51 @@ describe('the list menu', () => {
       bulletList: 'toggleBulletList',
       checklist: 'toggleTaskList',
       details: 'setDetails',
+      listReversed: 'toggleOrderedListReversed',
     };
     for (const action of LIST_ACTIONS) {
+      if (!(action.id in expected)) continue;
       const editor = mockEditor();
       action.run(editor, mockCtx());
       expect(editor.names(), action.id).toEqual([expected[action.id]]);
     }
+  });
+
+  it('offers the list extras only inside a list', () => {
+    const inList = (action) => {
+      expect(isActionEnabled(action, mockEditor({ active: ['orderedList'] }))).toBe(true);
+      expect(isActionEnabled(action, mockEditor())).toBe(false);
+    };
+    inList(LIST_ACTIONS.find((a) => a.id === 'listType'));
+    inList(LIST_ACTIONS.find((a) => a.id === 'listReversed'));
+  });
+
+  it('offers the explicit value on a list item and writes the typed number', async () => {
+    const action = LIST_ACTIONS.find((a) => a.id === 'listValue');
+    expect(isActionEnabled(action, mockEditor({ active: ['listItem'] }))).toBe(true);
+    expect(isActionEnabled(action, mockEditor())).toBe(false);
+
+    const editor = mockEditor({ active: ['listItem'] });
+    await action.run(editor, mockCtx({ askText: vi.fn(async () => '7') }));
+    expect(editor.calls).toEqual([{ name: 'setListItemValue', args: [7] }]);
+  });
+
+  it('writes the ordered-list marker style, validating it against the spec', async () => {
+    const action = LIST_ACTIONS.find((a) => a.id === 'listType');
+
+    const editor = mockEditor({ active: ['orderedList'] });
+    await action.run(editor, mockCtx({ askText: vi.fn(async () => 'a') }));
+    expect(editor.calls).toEqual([{ name: 'setOrderedListType', args: ['a'] }]);
+
+    const cleared = mockEditor({ active: ['orderedList'] });
+    await action.run(cleared, mockCtx({ askText: vi.fn(async () => '  ') }));
+    expect(cleared.calls).toEqual([{ name: 'setOrderedListType', args: [''] }]);
+
+    const ctx = mockCtx({ askText: vi.fn(async () => 'x') });
+    const bad = mockEditor({ active: ['orderedList'] });
+    await action.run(bad, ctx);
+    expect(bad.calls).toEqual([]);
+    expect(ctx.notify).toHaveBeenCalledWith('toast.invalidListType', 'error');
   });
 });
 
@@ -357,6 +425,10 @@ describe('media helpers', () => {
     expect(mediaKindForUrl('https://a/song.ogg#t=1')).toBe('audio');
     expect(mediaKindForUrl('https://a/pic.jpg')).toBe('photo');
     expect(mediaKindForUrl('https://a/no-extension')).toBe('photo');
+    // A locally picked file carries its name encoded inside the scheme URL.
+    expect(mediaKindForUrl('tfrfile://media/C%3A%2Fclips%2Fb.mov')).toBe('video');
+    expect(mediaKindForUrl('tfrfile://media/C%3A%2Fsong.mp3')).toBe('audio');
+    expect(mediaKindForUrl('tfrfile://media/C%3A%2Fpic.png')).toBe('photo');
   });
 
   it('splits and sanitizes URL lists', () => {
@@ -369,14 +441,157 @@ describe('media helpers', () => {
   });
 });
 
+describe('media picked from the device', () => {
+  const pick = (files) => vi.fn(async () => ({ ok: true, files }));
+
+  it('inserts one picked image straight into the editor', async () => {
+    const editor = mockEditor();
+    await MEDIA_ACTIONS.find((a) => a.id === 'photoOrVideo').run(
+      editor,
+      mockCtx({
+        askFiles: pick(['C:\\Users\\me\\pic.png']),
+        askText: vi.fn(async () => {
+          throw new Error('the URL prompt must not open when files were picked');
+        }),
+      }),
+    );
+    expect(editor.calls).toEqual([
+      { name: 'setImage', args: [{ src: 'tfrfile://media/C%3A%2FUsers%2Fme%2Fpic.png' }] },
+    ]);
+  });
+
+  it('sends a picked video to its media block, guessed from the extension', async () => {
+    const editor = mockEditor();
+    await MEDIA_ACTIONS.find((a) => a.id === 'photoOrVideo').run(
+      editor,
+      mockCtx({ askFiles: pick(['C:\\clips\\clip.mp4']) }),
+    );
+    expect(editor.calls).toEqual([
+      { name: 'setMediaBlock', args: [{ kind: 'video', src: 'tfrfile://media/C%3A%2Fclips%2Fclip.mp4' }] },
+    ]);
+  });
+
+  it('groups several picked files into a slideshow', async () => {
+    const editor = mockEditor();
+    await MEDIA_ACTIONS.find((a) => a.id === 'photoOrVideo').run(
+      editor,
+      mockCtx({ askFiles: pick(['C:\\a.png', 'C:\\b.jpg']) }),
+    );
+    expect(editor.calls).toEqual([
+      {
+        name: 'setGalleryBlock',
+        args: [
+          {
+            kind: 'slideshow',
+            images: ['tfrfile://media/C%3A%2Fa.png', 'tfrfile://media/C%3A%2Fb.jpg'],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('falls back to the URL prompt when the picker is cancelled empty', async () => {
+    const editor = mockEditor();
+    await MEDIA_ACTIONS.find((a) => a.id === 'photoOrVideo').run(
+      editor,
+      mockCtx({
+        askFiles: pick([]),
+        askText: vi.fn(async () => ' https://a.jpg '),
+      }),
+    );
+    expect(editor.calls).toEqual([{ name: 'setImage', args: [{ src: 'https://a.jpg' }] }]);
+  });
+
+  it('stops without touching the editor when nothing usable was picked', async () => {
+    const editor = mockEditor();
+    await MEDIA_ACTIONS.find((a) => a.id === 'photoOrVideo').run(
+      editor,
+      mockCtx({
+        askFiles: vi.fn(async () => ({ ok: false, files: [] })),
+        askText: vi.fn(async () => {
+          throw new Error('a failed pick must not open the URL prompt');
+        }),
+      }),
+    );
+    expect(editor.calls).toEqual([]);
+  });
+
+  it('takes audio files from the picker, one at a time', async () => {
+    const editor = mockEditor();
+    await MEDIA_ACTIONS.find((a) => a.id === 'audioFile').run(editor, mockCtx({ askFiles: pick(['C:\\voice.ogg']) }));
+    expect(editor.calls).toEqual([
+      { name: 'setMediaBlock', args: [{ kind: 'audio', src: 'tfrfile://media/C%3A%2Fvoice.ogg' }] },
+    ]);
+
+    // Two files chosen for a single-audio insert → the first wins.
+    const again = mockEditor();
+    await MEDIA_ACTIONS.find((a) => a.id === 'audioFile').run(
+      again,
+      mockCtx({ askFiles: pick(['C:\\one.mp3', 'C:\\two.mp3']) }),
+    );
+    expect(again.calls).toEqual([
+      { name: 'setMediaBlock', args: [{ kind: 'audio', src: 'tfrfile://media/C%3A%2Fone.mp3' }] },
+    ]);
+  });
+
+  it('takes documents from the picker as well', async () => {
+    const editor = mockEditor();
+    await MEDIA_ACTIONS.find((a) => a.id === 'documentFile').run(
+      editor,
+      mockCtx({ askFiles: pick(['C:\\docs\\report.pdf']) }),
+    );
+    expect(editor.calls).toEqual([
+      { name: 'setMediaBlock', args: [{ kind: 'document', src: 'tfrfile://media/C%3A%2Fdocs%2Freport.pdf' }] },
+    ]);
+  });
+
+  it('the picker is optional — the URL prompt still works without it', async () => {
+    const editor = mockEditor();
+    await MEDIA_ACTIONS.find((a) => a.id === 'documentFile').run(
+      editor,
+      mockCtx({ askText: vi.fn(async () => 'https://a/report.pdf') }),
+    );
+    expect(editor.calls).toEqual([
+      { name: 'setMediaBlock', args: [{ kind: 'document', src: 'https://a/report.pdf' }] },
+    ]);
+  });
+});
+
 describe('the media menu', () => {
-  it('offers exactly photo-or-video, audio file, location and caption', () => {
+  it('offers photo-or-video, audio, document, spoiler, location and caption, in order', () => {
     expect(MEDIA_ACTIONS.map((a) => a.id)).toEqual([
       'photoOrVideo',
       'audioFile',
+      'documentFile',
+      'mediaSpoiler',
       'location',
       'caption',
     ]);
+  });
+
+  it('inserts a document file as `<tg-document>` blocks do', async () => {
+    const editor = mockEditor();
+    await MEDIA_ACTIONS.find((a) => a.id === 'documentFile').run(
+      editor,
+      mockCtx({ askText: vi.fn(async () => 'https://a/report.pdf') }),
+    );
+    expect(editor.calls).toEqual([
+      { name: 'setMediaBlock', args: [{ kind: 'document', src: 'https://a/report.pdf' }] },
+    ]);
+  });
+
+  it('toggles the media spoiler on image and media-block nodes', () => {
+    const action = MEDIA_ACTIONS.find((a) => a.id === 'mediaSpoiler');
+    for (const node of ['image', 'mediaBlock']) {
+      expect(isActionEnabled(action, mockEditor({ active: [node] })), node).toBe(true);
+    }
+    // A gallery is multiple files at once; the spec's spoiler is per-figure.
+    expect(isActionEnabled(action, mockEditor({ active: ['galleryBlock'] }))).toBe(false);
+    expect(isActionEnabled(action, mockEditor({ active: ['paragraph'] }))).toBe(false);
+
+    const editor = mockEditor({ active: ['image'] });
+    action.run(editor, mockCtx());
+    expect(editor.names()).toEqual(['toggleMediaSpoiler']);
   });
 
   it('offers the caption only on a media node', () => {
@@ -513,9 +728,263 @@ describe('the media menu', () => {
   });
 });
 
-/* ═══════════════════ 7. Formula ═══════════════════ */
+/* ═══════════════════ 7. Premium article features ═══════════════════ */
 
-describe('insertFormula', () => {
+describe('premium actions', () => {
+  it('offers the Rich HTML Premium entities in a stable order', () => {
+    expect(PREMIUM_ACTIONS.map((a) => a.id)).toEqual([
+      'buttons',
+      'inlineButton',
+      'customEmoji',
+      'mention',
+      'dateTime',
+      'thinking',
+      'anchor',
+      'reference',
+    ]);
+  });
+
+  it('asks for an emoji id and fallback, then inserts `<tg-emoji>`', async () => {
+    const editor = mockEditor();
+    const ctx = mockCtx({
+      askText: vi
+        .fn()
+        .mockResolvedValueOnce(' 5368324170671202286 ')
+        .mockResolvedValueOnce('👍'),
+    });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'customEmoji').run(editor, ctx);
+    expect(editor.calls).toEqual([
+      {
+        name: 'insertCustomEmoji',
+        args: [{ emojiId: '5368324170671202286', fallback: '👍' }],
+      },
+    ]);
+  });
+
+  it('falls back to the sparkle when no fallback text was typed', async () => {
+    const editor = mockEditor();
+    const ctx = mockCtx({
+      askText: vi.fn().mockResolvedValueOnce('123').mockResolvedValueOnce('   '),
+    });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'customEmoji').run(editor, ctx);
+    expect(editor.calls[0].args[0].fallback).toBe('✨');
+  });
+
+  it('stops early when the emoji id is dismissed', async () => {
+    const editor = mockEditor();
+    await PREMIUM_ACTIONS.find((a) => a.id === 'customEmoji').run(
+      editor,
+      mockCtx({ askText: vi.fn(async () => null) }),
+    );
+    expect(editor.calls).toEqual([]);
+  });
+
+  it('accepts a unix timestamp or a parseable date for `<tg-time>`', async () => {
+    const editor = mockEditor();
+    const ctx = mockCtx({
+      askText: vi
+        .fn()
+        .mockResolvedValueOnce('1647531900')
+        .mockResolvedValueOnce('wDT')
+        .mockResolvedValueOnce('22:45 tomorrow'),
+    });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'dateTime').run(editor, ctx);
+    expect(editor.calls).toEqual([
+      {
+        name: 'insertDateTime',
+        args: [{ unix: 1647531900, format: 'wDT', text: '22:45 tomorrow' }],
+      },
+    ]);
+
+    const fromIso = mockEditor();
+    await insertDateTime(
+      fromIso,
+      mockCtx({
+        askText: vi
+          .fn()
+          .mockResolvedValueOnce('2022-03-15T10:45:00Z')
+          .mockResolvedValueOnce('')
+          .mockResolvedValueOnce(''),
+      }),
+    );
+    expect(fromIso.calls[0].args[0].unix).toBe(Date.parse('2022-03-15T10:45:00Z') / 1000);
+  });
+
+  it('rejects an unparseable date-time', async () => {
+    const editor = mockEditor();
+    const ctx = mockCtx({ askText: vi.fn(async () => 'next friday, maybe') });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'dateTime').run(editor, ctx);
+    expect(editor.calls).toEqual([]);
+    expect(ctx.notify).toHaveBeenCalledWith('toast.invalidTime', 'error');
+  });
+
+  it('inserts an inline mention as a `tg://user` link', async () => {
+    const editor = mockEditor();
+    const ctx = mockCtx({
+      askText: vi.fn().mockResolvedValueOnce('777000').mockResolvedValueOnce('Support'),
+    });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'mention').run(editor, ctx);
+    expect(editor.calls).toEqual([
+      {
+        name: 'insertContent',
+        args: [
+          {
+            type: 'text',
+            text: 'Support',
+            marks: [{ type: 'link', attrs: { href: 'tg://user?id=777000' } }],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('rejects a mention id that is not numeric', async () => {
+    const editor = mockEditor();
+    const ctx = mockCtx({ askText: vi.fn(async () => '@durov') });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'mention').run(editor, ctx);
+    expect(editor.calls).toEqual([]);
+    expect(ctx.notify).toHaveBeenCalledWith('toast.invalidId', 'error');
+  });
+
+  it('inserts and edits the thinking placeholder', async () => {
+    const editor = mockEditor();
+    await PREMIUM_ACTIONS.find((a) => a.id === 'thinking').run(
+      editor,
+      mockCtx({ askText: vi.fn(async () => 'Consulting the archive…') }),
+    );
+    expect(editor.calls).toEqual([
+      { name: 'setThinkingBlock', args: ['Consulting the archive…'] },
+    ]);
+
+    const edit = mockEditor({ active: ['thinkingBlock'], attrs: { text: 'Old' } });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'thinking').run(
+      edit,
+      mockCtx({ askText: vi.fn(async () => 'New') }),
+    );
+    expect(edit.calls).toEqual([{ name: 'updateAttributes', args: ['thinkingBlock', { text: 'New' }] }]);
+  });
+
+  it('cleans an anchor name to `#link`-safe text and inserts it', async () => {
+    const editor = mockEditor();
+    await PREMIUM_ACTIONS.find((a) => a.id === 'anchor').run(
+      editor,
+      mockCtx({ askText: vi.fn(async () => 'Chapter 1!') }),
+    );
+    expect(editor.calls).toEqual([{ name: 'insertAnchor', args: ['Chapter-1'] }]);
+  });
+
+  it('removes the reference when the name is cleared', async () => {
+    const editor = mockEditor({
+      selection: { from: 1, to: 5, empty: false },
+      attrs: { name: 'note-1' },
+    });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'reference').run(
+      editor,
+      mockCtx({ askText: vi.fn(async () => '   ') }),
+    );
+    expect(editor.names()).toEqual(['unsetReference']);
+  });
+
+  it('round-trips the buttons row through the dialog, updating in place', async () => {
+    const editor = mockEditor({ active: ['buttonsRow'], attrs: { buttons: [], align: '' } });
+    const ctx = mockCtx({
+      askButtons: vi.fn(async () => ({ align: 'left', buttons: [{ type: 'url', label: 'Docs' }] })),
+    });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'buttons').run(editor, ctx);
+    expect(editor.calls).toEqual([
+      {
+        name: 'updateAttributes',
+        args: ['buttonsRow', { align: 'left', buttons: [{ type: 'url', label: 'Docs' }] }],
+      },
+    ]);
+
+    const fresh = mockEditor();
+    await PREMIUM_ACTIONS.find((a) => a.id === 'buttons').run(fresh, ctx);
+    expect(fresh.names()).toEqual(['setButtonsRow']);
+  });
+
+  it('deletes an edited row whose buttons were all removed', async () => {
+    const editor = mockEditor({ active: ['buttonsRow'], attrs: { buttons: [] } });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'buttons').run(
+      editor,
+      mockCtx({ askButtons: vi.fn(async () => ({ align: '', buttons: [] })) }),
+    );
+    expect(editor.names()).toEqual(['deleteSelection']);
+  });
+
+  it('inserts an inline chip through the dialog and edits it in place', async () => {
+    const editor = mockEditor();
+    const ctx = mockCtx({
+      askInlineButton: vi.fn(async () => ({
+        type: 'url',
+        style: 'success',
+        label: 'Docs',
+        value: 'https://t.frich',
+      })),
+    });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'inlineButton').run(editor, ctx);
+    expect(editor.calls).toEqual([
+      {
+        name: 'setInlineButton',
+        args: [{ type: 'url', style: 'success', label: 'Docs', value: 'https://t.frich' }],
+      },
+    ]);
+
+    const editing = mockEditor({
+      active: ['inlineButton'],
+      attrs: { type: 'url', style: '', label: 'Docs', value: 'https://old' },
+    });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'inlineButton').run(editing, ctx);
+    expect(editing.calls).toEqual([
+      {
+        name: 'updateInlineButton',
+        args: [
+          { type: 'url', style: 'success', label: 'Docs', value: 'https://t.frich' },
+        ],
+      },
+    ]);
+  });
+
+  it('removes an edited inline chip when the dialog asks to', async () => {
+    const editor = mockEditor({
+      active: ['inlineButton'],
+      attrs: { type: 'url', label: 'Docs', value: 'https://old' },
+    });
+    await PREMIUM_ACTIONS.find((a) => a.id === 'inlineButton').run(
+      editor,
+      mockCtx({ askInlineButton: vi.fn(async () => ({ removed: true })) }),
+    );
+    expect(editor.names()).toEqual(['removeInlineButton']);
+  });
+
+  it('leaves the document alone when the inline dialog is cancelled', async () => {
+    const editor = mockEditor();
+    await PREMIUM_ACTIONS.find((a) => a.id === 'inlineButton').run(
+      editor,
+      mockCtx({ askInlineButton: vi.fn(async () => null) }),
+    );
+    expect(editor.calls).toEqual([]);
+  });
+});
+
+/* ═══════════════════ 8. Table cell extras ═══════════════════ */
+
+describe('the table cell extras', () => {
+  it('parses cell coordinates and rejects malformed coordinates', async () => {
+    const editor = mockEditor({ active: ['tableCell'] });
+    const ctx = mockCtx({ askText: vi.fn(async () => 'A title') });
+    await TABLE_CELL_ACTIONS.find((a) => a.id === 'tableCaption').run(editor, ctx);
+    expect(editor.calls).toEqual([{ name: 'setTableCaption', args: ['A title'] }]);
+  });
+
+  it('toggles settled alignment values off again', async () => {
+    const editor = mockEditor({ active: ['tableCell'], attrs: { align: 'center' } });
+    await TABLE_CELL_ACTIONS.find((a) => a.id === 'alignCenter').run(editor, mockCtx());
+    expect(editor.calls).toEqual([{ name: 'setCellAlign', args: [''] }]);
+  });
+});
+
+/* ═══════════════════ 9. Formula ═══════════════════ */describe('insertFormula', () => {
   it('inserts a math block from the entered formula', async () => {
     const editor = mockEditor();
     await insertFormula(editor, mockCtx({ askText: vi.fn(async () => 'a^2+b^2') }));
@@ -541,7 +1010,21 @@ describe('allActions', () => {
   it('includes the palette-only extras', () => {
     const ids = allActions().map((a) => a.id);
     expect(ids).toEqual(
-      expect.arrayContaining(['code', 'clearFormat', 'mathInline', 'collage', 'insertTable']),
+      expect.arrayContaining([
+        'code',
+        'clearFormat',
+        'mathInline',
+        'collage',
+        'insertTable',
+        // The Premium article features.
+        'buttons',
+        'customEmoji',
+        'dateTime',
+        'thinking',
+        'anchor',
+        'reference',
+        'mention',
+      ]),
     );
   });
 

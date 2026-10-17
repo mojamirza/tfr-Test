@@ -30,6 +30,13 @@ describe('parseBlockElement', () => {
     const result = parseBlockElement(el('<blockquote>Quote me</blockquote>'));
     expect(result.type).toBe(BlockType.BLOCKQUOTE);
     expect(result.text).toBe('Quote me');
+    expect(result.expandable).toBe(false);
+  });
+
+  it('flags an expandable blockquote', () => {
+    const result = parseBlockElement(el('<blockquote data-expandable>Long quote</blockquote>'));
+    expect(result.type).toBe(BlockType.BLOCKQUOTE);
+    expect(result.expandable).toBe(true);
   });
 
   it('parses code block with language', () => {
@@ -70,6 +77,31 @@ describe('parseBlockElement', () => {
     expect(result.type).toBe(BlockType.TABLE);
     expect(result.header).toEqual(['H1', 'H2']);
     expect(result.rows).toEqual([['a', 'b']]);
+  });
+
+  it('reads the table caption and style toggles', () => {
+    const result = parseBlockElement(
+      el(
+        '<table data-caption="Rates" data-striped data-compact>' +
+          '<tr><th>H</th></tr><tr><td>a</td></tr></table>',
+      ),
+    );
+    expect(result.caption).toBe('Rates');
+    expect(result.striped).toBe(true);
+    expect(result.compact).toBe(true);
+  });
+
+  it('reads ordered-list extras: start, marker type, reversed and item values', () => {
+    const result = parseBlockElement(
+      el(
+        '<ol start="3" data-list-type="A" data-reversed>' +
+          '<li data-value="7">Seven</li><li>Six</li></ol>',
+      ),
+    );
+    expect(result.start).toBe(3);
+    expect(result.listType).toBe('A');
+    expect(result.reversed).toBe(true);
+    expect(result.items).toEqual([{ text: 'Seven', value: 7 }, { text: 'Six' }]);
   });
 
   it('parses details', () => {
@@ -121,6 +153,7 @@ describe('parseBlockElement', () => {
       url: 'https://x/a.png',
       caption: 'cap',
       credit: '',
+      spoiler: false,
     });
     expect(parseBlockElement(el('<video src="https://x/v.mp4"></video>')).type).toBe(
       BlockType.VIDEO,
@@ -128,6 +161,49 @@ describe('parseBlockElement', () => {
     expect(parseBlockElement(el('<audio src="https://x/a.mp3"></audio>')).type).toBe(
       BlockType.AUDIO,
     );
+  });
+
+  it('parses a document file block', () => {
+    expect(parseBlockElement(el('<tg-document src="https://x/a.pdf"></tg-document>'))).toEqual({
+      type: BlockType.DOCUMENT,
+      url: 'https://x/a.pdf',
+      caption: '',
+      credit: '',
+      spoiler: false,
+    });
+  });
+
+  it('reads the tg-spoiler attribute off media', () => {
+    expect(
+      parseBlockElement(el('<img src="https://x/a.png" data-spoiler alt="cap">')).spoiler,
+    ).toBe(true);
+  });
+
+  it('parses an inline button row', () => {
+    const buttons = JSON.stringify([
+      { type: 'url', style: 'primary', label: 'Docs', value: 'https://tfr.dev' },
+      { type: 'copy_text', label: 'Copy', value: 'hello' },
+    ]);
+    const result = parseBlockElement(el(`<div class="tg-buttons" data-align="left" data-buttons='${buttons}'></div>`));
+    expect(result.type).toBe(BlockType.BUTTONS);
+    expect(result.align).toBe('left');
+    expect(result.buttons).toEqual([
+      { type: 'url', style: 'primary', label: 'Docs', value: 'https://tfr.dev' },
+      { type: 'copy_text', label: 'Copy', value: 'hello' },
+    ]);
+  });
+
+  it('drops malformed button JSON instead of showing broken buttons', () => {
+    const result = parseBlockElement(
+      el('<div class="tg-buttons" data-buttons="[{broken"></div>'),
+    );
+    expect(result.buttons).toEqual([]);
+  });
+
+  it('parses the thinking placeholder', () => {
+    expect(
+      parseBlockElement(el('<div class="tg-thinking" data-text="Parsing…"></div>')),
+    ).toEqual({ type: BlockType.THINKING, text: 'Parsing…' });
   });
 
   it('parses a slideshow gallery from data-images', () => {
@@ -171,6 +247,7 @@ describe('parseBlockElement', () => {
       url: 'https://x/v.mp4',
       caption: 'Clip',
       credit: 'Ada',
+      spoiler: false,
     });
 
     expect(
@@ -196,6 +273,10 @@ describe('parseBlockElement', () => {
     expect(parseBlockElement(el('<video src="data:video/mp4;base64,AAAA"></video>')).url).toBe('');
     // Schemeless is not a URL the message can carry, so it is not previewed.
     expect(parseBlockElement(el('<img src="a.jpg">')).url).toBe('');
+    // …but the app's own local-media scheme is checked by protocol, and stays.
+    expect(parseBlockElement(el('<img src="tfrfile://media/C%3A%2Fpic.png">')).url).toBe(
+      'tfrfile://media/C%3A%2Fpic.png',
+    );
 
     expect(
       parseBlockElement(

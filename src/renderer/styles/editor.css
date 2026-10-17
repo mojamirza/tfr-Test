@@ -1,11 +1,15 @@
 /**
- * Editor surface — Telegram composer typography and block styling.
+ * Editor surface — a modern document column with Telegram composer typography.
  */
 
+/* The message is a centered document column, not edge-to-edge text: the
+   widest comfortable line, RTL-safe via the logical margin. */
 .editor-pane .ProseMirror,
 .tfr-editor {
   min-height: 100%;
-  padding: 14px 20px 28px;
+  max-width: 860px;
+  margin-inline: auto;
+  padding: 26px 30px 70px;
   outline: none;
   font-size: 15px;
   line-height: 1.62;
@@ -109,8 +113,8 @@
 
 .tfr-editor blockquote {
   border-inline-start: 3px solid var(--accent);
-  border-radius: 3px;
-  padding-inline-start: 12px;
+  border-radius: 6px;
+  padding-inline-start: 14px;
   margin: 8px 0;
   color: var(--text);
 }
@@ -127,9 +131,9 @@
 }
 
 .tfr-editor pre {
-  background: var(--surface);
+  background: var(--surface2);
   border: 1px solid var(--outline);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 12px 14px;
   font-family: 'SF Mono', Menlo, Consolas, monospace;
   font-size: 13px;
@@ -146,7 +150,7 @@
 
 .tfr-editor hr {
   border: none;
-  border-top: 1px solid var(--outline-strong);
+  border-top: 1px solid var(--outline);
   margin: 14px 0;
 }
 
@@ -226,15 +230,20 @@
   margin: 10px 0;
   table-layout: fixed;
   overflow: hidden;
+  border-radius: var(--radius-sm);
 }
 
 .tfr-editor th,
 .tfr-editor td {
-  border: 1px solid var(--outline-strong);
+  border: 1px solid var(--outline);
   padding: 6px 9px;
   vertical-align: top;
   position: relative;
   min-width: 60px;
+  /* Follow the writing direction, not the physical column order — the root
+     fix for RTL tables: a Persian header reads from the right edge without
+     any per-cell override. */
+  text-align: start;
 }
 
 .tfr-editor th {
@@ -263,7 +272,8 @@
 /* Details */
 .tfr-editor details {
   border: 1px solid var(--outline);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface2) 50%, transparent);
   padding: 8px 12px;
   margin: 8px 0;
 }
@@ -298,7 +308,7 @@
   text-align: center;
   color: var(--math);
   background: var(--surface2);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 10px;
   margin: 8px 0;
 }
@@ -306,7 +316,7 @@
 /* Media */
 .tfr-editor img {
   max-width: min(100%, 320px);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   display: block;
 }
 
@@ -521,4 +531,236 @@
   margin-top: 4px;
   font-size: 11.5px;
   color: var(--text-dim);
+}
+
+/* ─────────────── RTL tables ─────────────── */
+
+/* The column-resize handle is positioned at the cell's inline-end edge with a
+   physical `right`, which in a right-to-left table puts it on the wrong border
+   and drags the wrong neighbour. Mirror it onto the visual trailing edge. */
+[dir='rtl'] .tfr-editor .column-resize-handle {
+  right: auto;
+  left: -2px;
+}
+
+[dir='rtl'] .tfr-editor .selectedCell::after {
+  /* The selection veil is symmetric — nothing to mirror. Kept here so future
+     position work inside cells starts from the right context. */
+  inset: 0;
+}
+
+/* A list's markers sit on the inline-start side; in RTL that is already the
+   right edge, so only the padding needs to stay symmetric. */
+[dir='rtl'] .tfr-editor ol,
+[dir='rtl'] .tfr-editor ul {
+  padding-inline-start: 1.4em;
+  padding-inline-end: 0;
+}
+
+/* ─────────────── Cell alignment (serialized as align/valign) ─────────────── */
+
+.tfr-editor th[data-align='left'],
+.tfr-editor td[data-align='left'] {
+  text-align: left;
+}
+
+.tfr-editor th[data-align='center'],
+.tfr-editor td[data-align='center'] {
+  text-align: center;
+}
+
+.tfr-editor th[data-align='right'],
+.tfr-editor td[data-align='right'] {
+  text-align: right;
+}
+
+.tfr-editor th[data-valign='middle'],
+.tfr-editor td[data-valign='middle'] {
+  vertical-align: middle;
+}
+
+.tfr-editor th[data-valign='bottom'],
+.tfr-editor td[data-valign='bottom'] {
+  vertical-align: bottom;
+}
+
+/* ─────────────── Expandable quote ─────────────── */
+
+.tfr-editor blockquote[data-expandable] {
+  border-inline-start-style: dashed;
+}
+
+.tfr-editor blockquote[data-expandable]::before {
+  content: '⇕ ';
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ─────────────── Premium inline entities ─────────────── */
+
+/* Custom emoji — rendered as the fallback text in a highlighted chip here;
+   Telegram swaps in the real artwork from the emoji pack. */
+.tfr-editor .tg-emoji {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-radius: 6px;
+  padding: 0 4px;
+  margin: 0 1px;
+}
+
+/* Formatted date-time chip. */
+.tfr-editor .tg-time {
+  border: 1px solid var(--outline);
+  border-radius: 8px;
+  padding: 0 6px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Anchor — a small, selectable marker that stays out of typed text. */
+.tfr-editor .tg-anchor {
+  color: var(--accent);
+  opacity: 0.55;
+  font-size: 0.9em;
+  user-select: none;
+  cursor: default;
+}
+
+.tfr-editor .tg-anchor.ProseMirror-selectednode {
+  opacity: 1;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Reference — text another link can point at by name. */
+.tfr-editor .tg-reference {
+  border-bottom: 1px dotted var(--accent);
+  cursor: default;
+}
+
+/* ─────────────── Inline buttons ─────────────── */
+
+.tfr-editor .tg-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.tfr-editor .tg-buttons[data-align='left'] {
+  justify-content: flex-start;
+}
+
+.tfr-editor .tg-buttons[data-align='center'] {
+  justify-content: center;
+}
+
+.tfr-editor .tg-buttons[data-align='right'] {
+  justify-content: flex-end;
+}
+
+.tfr-editor .tg-btn-chip {
+  border: 1px solid var(--outline-strong);
+  border-radius: 9px;
+  background: var(--surface2);
+  padding: 3px 12px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* The color themes Telegram paints its buttons with — `primary` follows the
+   chat accent (blue in the default themes), `success` is green, `danger` red
+   and `link` a plain-blue text button. */
+.tfr-editor .tg-btn-chip[data-style='primary'] {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface2));
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--accent);
+}
+
+.tfr-editor .tg-btn-chip[data-style='success'] {
+  background: color-mix(in srgb, var(--success) 16%, var(--surface2));
+  border-color: color-mix(in srgb, var(--success) 50%, transparent);
+  color: var(--success);
+}
+
+.tfr-editor .tg-btn-chip[data-style='danger'] {
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface2));
+  border-color: color-mix(in srgb, var(--danger) 50%, transparent);
+  color: var(--danger);
+}
+
+.tfr-editor .tg-btn-chip[data-style='link'] {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.tfr-editor .tg-buttons.ProseMirror-selectednode .tg-btn-chip {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface2));
+  border-color: var(--accent);
+}
+
+/* Inside-text buttons (Bot API 10.3 RichTextButton) render the literal
+   `<tg-button>` element and carry the same chip class as row buttons, so the
+   theme rules above tint them for free — only the line-flow bits differ. */
+.tfr-editor tg-button {
+  display: inline-block;
+  vertical-align: baseline;
+  margin: 0 2px;
+  line-height: 1.5;
+}
+
+.tfr-editor .tg-btn-chip.ProseMirror-selectednode {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface2));
+  border-color: var(--accent);
+}
+
+/* ─────────────── Thinking placeholder (draft mode) ─────────────── */
+
+.tfr-editor .tg-thinking {
+  border: 1px dashed var(--outline);
+  border-radius: var(--radius-md);
+  background: var(--surface2);
+  color: var(--text-muted);
+  padding: 8px 12px;
+  margin: 8px 0;
+  font-size: 13.5px;
+}
+
+.tfr-editor .tg-thinking.ProseMirror-selectednode {
+  border-color: var(--accent);
+}
+
+/* ─────────────── Document block ─────────────── */
+
+.tfr-editor .tg-media-document {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 340px;
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-md);
+  background: var(--surface2);
+  padding: 10px 12px;
+  margin: 8px 0;
+  cursor: default;
+}
+
+.tfr-editor .tg-media-document.ProseMirror-selectednode {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ─────────────── Media spoiler ─────────────── */
+
+.tfr-editor img[data-spoiler],
+.tfr-editor video[data-spoiler] {
+  filter: blur(14px);
+  transition: filter 0.2s ease;
+}
+
+.tfr-editor img[data-spoiler]:hover,
+.tfr-editor video[data-spoiler]:hover {
+  filter: blur(4px);
 }

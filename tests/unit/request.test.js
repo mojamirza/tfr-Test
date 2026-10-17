@@ -6,6 +6,9 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { createRequester, proxyHint } from '../../src/main/net/request.js';
 
 /**
@@ -28,7 +31,11 @@ function fakeNet(script = {}) {
         request.headers[name] = value;
       });
       calls[calls.length - 1].headers = request.headers;
-      request.write = vi.fn();
+      request.write = vi.fn((chunk) => {
+        const slot = calls[calls.length - 1];
+        slot.writes = slot.writes || [];
+        slot.writes.push(chunk);
+      });
       request.abort = vi.fn();
       request.end = () => {
         if (script.silent) return; // never answers — exercises the timeout
@@ -101,6 +108,51 @@ describe('createRequester', () => {
     const { request, calls } = make({ body: '{"ok":true}' });
     await request('https://api.telegram.org/botX/sendRichMessage', { chat_id: '@c' });
     expect(calls[0].headers).toEqual({ 'Content-Type': 'application/json' });
+  });
+
+  it('uploads attachments as multipart form-data, fields first', async () => {
+    const file = path.join(os.tmpdir(), 'tfr-upload-test.png');
+    fs.writeFileSync(file, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]));
+    try {
+      const { request, calls } = make({ body: '{"ok":true}' });
+      await request(
+        'https://api.telegram.org/botX/sendRichMessage',
+        { chat_id: 123, rich_message: { html: '<img src="tg://photo?id=m1"/>' } },
+        [{ name: 'm1', path: file }],
+      );
+
+      const call = calls[0];
+      expect(call.method).toBe('POST');
+      const boundary = /^multipart\/form-data; boundary=(.+)$/.exec(
+        call.headers['Content-Type'],
+      )[1];
+      expect(boundary.startsWith('----tfr')).toBe(true);
+
+      const raw = Buffer.concat(call.writes).toString('latin1');
+      expect(raw.startsWith(`--${boundary}\r\n`)).toBe(true);
+      expect(raw).toContain('Content-Disposition: form-data; name="chat_id"\r\n\r\n123\r\n');
+      expect(raw).toContain('Content-Disposition: form-data; name="rich_message"');
+      expect(raw).toContain('{"html":"<img src=\\"tg://photo?id=m1\\"/>"}');
+      expect(raw).toContain(`name="m1"; filename="tfr-upload-test.png"`);
+      expect(raw).toContain('\x89PNG');
+      expect(raw.endsWith(`--${boundary}--\r\n`)).toBe(true);
+      expect(raw).not.toContain('_files');
+    } finally {
+      fs.rmSync(file, { force: true });
+    }
+  });
+
+  it('multipart works with an empty payload too', async () => {
+    const file = path.join(os.tmpdir(), 'tfr-upload-solo.mp4');
+    fs.writeFileSync(file, 'x');
+    try {
+      const { request, calls } = make({ body: '{"ok":true}' });
+      await request('https://api.telegram.org/botX/sendVideo', null, [{ name: 'm1', path: file }]);
+      expect(calls[0].method).toBe('POST');
+      expect(calls[0].headers['Content-Type']).toMatch(/^multipart\/form-data/);
+    } finally {
+      fs.rmSync(file, { force: true });
+    }
   });
 
   it('reads the session per request, not while being built', async () => {

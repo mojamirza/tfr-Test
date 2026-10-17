@@ -14,6 +14,9 @@
  */
 
 const { describeProxy } = require('./proxy');
+const { randomUUID } = require('crypto');
+const path = require('path');
+const fs = require('fs');
 
 const HTTP_TIMEOUT_MS = 30000;
 const MAX_RESPONSE_BYTES = 1048576;
@@ -51,6 +54,12 @@ function proxyHint(error, proxyConfig) {
  * while the main process is still loading its modules crashes the app before a
  * window exists.
  *
+ * When `attachments` is non-empty the payload is sent as multipart/form-data
+ * with each file as its own part (this is the only form the Bot API accepts
+ * uploads in). The body is assembled by hand over `net.request`, so the whole
+ * pipeline keeps Chromium's proxy handling; Node's FormData/fetch would bypass
+ * the session and lose it.
+ *
  * @param {{
  *   net: object,
  *   getSession: () => object,
@@ -58,7 +67,7 @@ function proxyHint(error, proxyConfig) {
  *   timeoutMs?: number,
  *   maxBytes?: number,
  * }} deps
- * @returns {(url: string, payload?: object|null) => Promise<object>}
+ * @returns {(url: string, payload?: object|null, attachments?: Array<{name: string, path: string}>) => Promise<object>}
  */
 function createRequester({
   net,
@@ -67,11 +76,64 @@ function createRequester({
   timeoutMs = HTTP_TIMEOUT_MS,
   maxBytes = MAX_RESPONSE_BYTES,
 }) {
-  return function tgRequest(url, payload = null) {
-    return new Promise((resolve, reject) => {
-      const isPost = payload !== null;
-      const data = isPost ? JSON.stringify(payload) : null;
+  /**
+   * Encode the multipart payload. Field values follow the Bot API rules:
+   * strings as-is, objects JSON-serialized; files read once into a Buffer.
+   * @param {object} payload
+   * @param {Array<{name: string, path: string}>} attachments
+   * @returns {{ body: Buffer, contentType: string }}
+   */
+  function encodeMultipart(payload, attachments) {
+    const boundary = `----tfr${randomUUID()}`;
+    const chunks = [];
+    const field = (name, value) => {
+      chunks.push(
+        Buffer.from(
+          `--${boundary}\r\n` +
+            `Content-Disposition: form-data; name="${name}"\r\n\r\n` +
+            `${value}\r\n`,
+          'utf8',
+        ),
+      );
+    };
 
+    for (const [name, value] of Object.entries(payload || {})) {
+      field(name, typeof value === 'string' ? value : JSON.stringify(value));
+    }
+    for (const attachment of attachments) {
+      const filename = path.basename(attachment.path) || 'file';
+      chunks.push(
+        Buffer.from(
+          `--${boundary}\r\n` +
+            `Content-Disposition: form-data; name="${attachment.name}"; filename="${encodeURIComponent(
+              filename,
+            ).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16)}`)}"\r\n\r\n`,
+          'utf8',
+        ),
+      );
+      chunks.push(fs.readFileSync(attachment.path));
+      chunks.push(Buffer.from('\r\n', 'utf8'));
+    }
+    chunks.push(Buffer.from(`--${boundary}--\r\n`, 'utf8'));
+    return { body: Buffer.concat(chunks), contentType: `multipart/form-data; boundary=${boundary}` };
+  }
+
+  function tgRequest(url, payload = null, attachments = null) {
+    // Attachments always travel as multipart, even alongside an empty payload.
+    const isPost = payload !== null || (attachments && attachments.length > 0);
+    let data = null;
+    let contentType = 'application/json';
+
+    if (isPost) {
+      if (attachments && attachments.length) {
+        const encoded = encodeMultipart(payload || {}, attachments);
+        ({ body: data, contentType } = encoded);
+      } else {
+        data = JSON.stringify(payload);
+      }
+    }
+
+    return new Promise((resolve, reject) => {
       const request = net.request({
         method: isPost ? 'POST' : 'GET',
         url,
@@ -105,7 +167,7 @@ function createRequester({
         // is given and rejects a manually supplied one, so setting it here
         // failed every POST — every send — with `net::ERR_INVALID_ARGUMENT`,
         // while GET requests (the connection test) went through untouched.
-        request.setHeader('Content-Type', 'application/json');
+        request.setHeader('Content-Type', contentType);
       }
 
       request.on('response', (response) => {
@@ -149,7 +211,9 @@ function createRequester({
       if (data) request.write(data);
       request.end();
     });
-  };
+  }
+
+  return tgRequest;
 }
 
 module.exports = { createRequester, proxyHint, HTTP_TIMEOUT_MS, MAX_RESPONSE_BYTES };

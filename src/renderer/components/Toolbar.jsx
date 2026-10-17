@@ -7,8 +7,8 @@
  *
  * Aa, B, list and media open a vertical menu; table, link and Σ act straight
  * away (insert a table, open the "Create link" panel, ask for a formula).
- * There is no emoji button: custom emoji are Premium-only entities that a bot
- * cannot send through the rich-message API.
+ * Premium entities (custom emoji, date-time, buttons, …) live in the insert
+ * palette behind the wand, not here — this strip stays seven buttons wide.
  *
  * @module components/Toolbar
  */
@@ -136,6 +136,8 @@ export default function Toolbar({ editor, ctx }) {
           onClick={() => editor && editor.chain().focus().redo().run()}
         />
       </div>
+
+      <span className="tb-sep" />
 
       <div className="tb-group">
         <TbButton

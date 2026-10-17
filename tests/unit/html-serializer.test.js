@@ -17,6 +17,11 @@ import {
   checkLimits,
   escapeText,
   isPrivateChatId,
+  LINK_SCHEMES,
+  localFileUrl,
+  localUrlToPath,
+  MEDIA_SCHEMES,
+  rewriteLocalMedia,
   safeUrl,
   serializeEditorHtml,
 } from '../../src/shared/html-serializer.js';
@@ -291,6 +296,300 @@ describe('media', () => {
   it('counts media', () => {
     const out = ser('<img src="https://a.jpg"><div class="tg-gallery" data-images="https://b.jpg,https://c.jpg"></div>');
     expect(out.media).toBe(3);
+  });
+});
+
+describe('premium entities', () => {
+  it('writes the expandable quote flag', () => {
+    expect(html('<blockquote data-expandable><p>Long quote</p></blockquote>')).toBe(
+      '<blockquote expandable><p>Long quote</p></blockquote>',
+    );
+  });
+
+  it('writes an empty anchor block, and drops it inside a table cell', () => {
+    expect(html('<span data-tg-anchor="chapter-1"></span>')).toBe('<a name="chapter-1"></a>');
+    expect(
+      html('<table><tr><td><span data-tg-anchor="x"></span></td></tr></table>'),
+    ).toBe('<table bordered><tr><td></td></tr></table>');
+  });
+
+  it('carries the ordered-list attributes', () => {
+    expect(html('<ol start="3" data-list-type="a" data-reversed><li><p>one</p></li></ol>')).toBe(
+      '<ol start="3" type="a" reversed><li>one</li></ol>',
+    );
+    expect(html('<ol><li data-value="7" data-list-type="i">Seven</li></ol>')).toBe(
+      '<ol><li value="7" type="i">Seven</li></ol>',
+    );
+  });
+
+  it('carries the documented `<tg-reference>`, `<tg-emoji>` and `<tg-time>`', () => {
+    expect(html('<span data-tg-reference="note-1">footnote</span>')).toBe(
+      '<tg-reference name="note-1">footnote</tg-reference>',
+    );
+    expect(html('<span data-emoji-id="5368324170671202286">👍</span>')).toBe(
+      '<tg-emoji emoji-id="5368324170671202286">👍</tg-emoji>',
+    );
+    // An emoji without its id is nothing Telegram could resolve.
+    expect(html('<span data-emoji-id="">👍</span>')).toBe('');
+    expect(html('<span data-tg-time="1647531900" data-time-format="wDT">22:45</span>')).toBe(
+      '<tg-time unix="1647531900" format="wDT">22:45</tg-time>',
+    );
+    expect(html('<span data-tg-time="1647531900">22:45</span>')).toBe(
+      '<tg-time unix="1647531900">22:45</tg-time>',
+    );
+  });
+
+  it('reads table caption, toggles and cell options back out', () => {
+    expect(
+      html(
+        '<table data-caption="Rates" data-striped><tr><th colspan="2" data-align="center" data-valign="bottom">H</th></tr>' +
+          '<tr><td data-align="right">a</td></tr></table>',
+      ),
+    ).toBe(
+      '<table bordered striped><caption>Rates</caption>' +
+        '<tr><th colspan="2" align="center" valign="bottom">H</th></tr>' +
+        '<tr><td align="right">a</td></tr></table>',
+    );
+  });
+});
+
+describe('inline buttons', () => {
+  const row = (buttons, extra = '') =>
+    html(`<div class="tg-buttons" data-buttons='${buttons}'${extra}></div>`);
+
+  it('writes a validated `<tg-button-row>`', () => {
+    expect(
+      row(
+        JSON.stringify([{ type: 'url', style: 'primary', label: 'Docs', value: 'https://tfr.dev' }]),
+        ' data-align="left"',
+      ),
+    ).toBe(
+      '<tg-button-row align="left">' +
+        '<tg-button type="url" style="primary" url="https://tfr.dev">Docs</tg-button>' +
+        '</tg-button-row>',
+    );
+  });
+
+  it('writes each documented button kind with the attribute it reads', () => {
+    const buttons = [
+      { type: 'callback_data', label: 'Go', value: 'do-thing' },
+      { type: 'web_app', label: 'Open', value: 'https://app.example.com' },
+      { type: 'login_url', label: 'Sign in', value: 'https://signin.example.com', forwardText: 'Log in', requestWriteAccess: true },
+      { type: 'switch_inline_query_chosen_chat', label: 'Share', value: 'hi', allowUserChats: true, allowChannelChats: true },
+      { type: 'copy_text', label: 'Copy', value: 'some text' },
+      { type: 'disabled', label: 'Locked' },
+    ];
+    expect(row(JSON.stringify(buttons))).toBe(
+      '<tg-button-row>' +
+        '<tg-button type="callback_data" data="do-thing">Go</tg-button>' +
+        '<tg-button type="web_app" url="https://app.example.com">Open</tg-button>' +
+        '<tg-button type="login_url" url="https://signin.example.com" forward-text="Log in" request-write-access>Sign in</tg-button>' +
+        '<tg-button type="switch_inline_query_chosen_chat" query="hi" allow-user-chats allow-channel-chats>Share</tg-button>' +
+        '<tg-button type="copy_text" text="some text">Copy</tg-button>' +
+        '<tg-button type="disabled">Locked</tg-button>' +
+        '</tg-button-row>',
+    );
+  });
+
+  it('refuses buttons the spec would reject', () => {
+    // A `web_app` may only open https.
+    expect(
+      row(JSON.stringify([{ type: 'web_app', label: 'O', value: 'http://app.example.com' }])),
+    ).toBe('');
+    // A `url` button with an unsafe scheme is dropped too.
+    expect(row(JSON.stringify([{ type: 'url', label: 'x', value: 'javascript:alert(1)' }]))).toBe(
+      '',
+    );
+    // And a row with no valid buttons at all is not sent.
+    expect(row(JSON.stringify([{ label: ' ' }]))).toBe('');
+    expect(row('not json')).toBe('');
+    expect(row('[not an array of objects]')).toBe('');
+  });
+
+  it('counts the row and its buttons as blocks', () => {
+    const out = ser(
+      `<div class="tg-buttons" data-buttons='${JSON.stringify([
+        { type: 'url', label: 'A', value: 'https://a' },
+        { type: 'url', label: 'B', value: 'https://b' },
+      ])}'></div>`,
+    );
+    expect(out.blocks).toBe(3);
+  });
+
+  it('keeps the link style only on callback buttons (10.3)', () => {
+    // "The style 'link' is allowed only for callback buttons" — for anything
+    // else the style is not carried at all rather than risking an API error.
+    const mk = (type, value) =>
+      row(JSON.stringify([{ type, style: 'link', label: 'x', value }]));
+    expect(mk('callback_data', 'v')).toBe(
+      '<tg-button-row><tg-button type="callback_data" style="link" data="v">x</tg-button></tg-button-row>',
+    );
+    expect(mk('url', 'https://v.example')).toBe(
+      '<tg-button-row><tg-button type="url" url="https://v.example">x</tg-button></tg-button-row>',
+    );
+    expect(mk('switch_inline_query', 'v')).toBe(
+      '<tg-button-row><tg-button type="switch_inline_query" query="v">x</tg-button></tg-button-row>',
+    );
+  });
+});
+
+describe('inline `<tg-button>` in text (10.3 RichTextButton)', () => {
+  it('serializes a chip riding inside a paragraph', () => {
+    expect(
+      html(
+        '<p>Inline buttons: <tg-button type="url" style="success" url="https://t.me/test">open</tg-button></p>',
+      ),
+    ).toBe(
+      '<p>Inline buttons: <tg-button type="url" style="success" url="https://t.me/test">open</tg-button></p>',
+    );
+  });
+
+  it('rebuilds the element from its attributes every time', () => {
+    // Even if the editor hands over a paragraph the wire never sees extra
+    // attributes: the button is serialized from a validated record.
+    expect(
+      html(
+        '<p><tg-button type="copy_text" text="sync me" style="primary"> Описание </tg-button></p>',
+      ),
+    ).toBe('<p><tg-button type="copy_text" style="primary" text="sync me">Описание</tg-button></p>');
+  });
+
+  it('drops an unusable chip but keeps the text around it', () => {
+    expect(html('<p>before <tg-button type="url" url="javascript:x">go</tg-button> after</p>')).toBe(
+      '<p>before  after</p>',
+    );
+  });
+
+  it('survives inside a table cell, where buttons are still inline', () => {
+    expect(
+      html(
+        '<table><tbody><tr><td><tg-button type="url" url="https://x.y">go</tg-button></td></tr></tbody></table>',
+      ),
+    ).toBe(
+      '<table bordered><tr><td><tg-button type="url" url="https://x.y">go</tg-button></td></tr></table>',
+    );
+  });
+
+  it('does not count toward the block limit — it is a RichText node', () => {
+    const out = ser('<p><tg-button type="disabled">do nothing</tg-button></p>');
+    expect(out.blocks).toBe(1);
+  });
+});
+
+describe('thinking placeholder', () => {
+  it('writes the draft-only block and escapes its text', () => {
+    expect(html('<div class="tg-thinking" data-text="Thinking..."></div>')).toBe(
+      '<tg-thinking>Thinking...</tg-thinking>',
+    );
+    expect(html('<div class="tg-thinking" data-text="a &lt; b"></div>')).toBe(
+      '<tg-thinking>a &lt; b</tg-thinking>',
+    );
+  });
+});
+
+describe('media spoilers', () => {
+  it('wraps spoilered media in a figure with the tg-spoiler attribute', () => {
+    expect(html('<img src="https://a/p.jpg" data-spoiler data-caption="Surprise">')).toBe(
+      '<figure><img src="https://a/p.jpg" tg-spoiler/><figcaption>Surprise</figcaption></figure>',
+    );
+    expect(html('<video src="https://a/v.mp4" data-spoiler></video>')).toBe(
+      '<figure><video src="https://a/v.mp4" tg-spoiler></video></figure>',
+    );
+  });
+
+  it('writes documents with their src and caption', () => {
+    expect(html('<tg-document src="https://a/f.pdf" data-caption="Report"></tg-document>')).toBe(
+      '<tg-document src="https://a/f.pdf"></tg-document><figcaption>Report</figcaption>',
+    );
+    // A document keeps whatever src it carries — the URL check happens when
+    // the attachment is uploaded, not at serialization time.
+    expect(html(`<tg-document src="${localFileUrl('C:/x/f.pdf')}"></tg-document>`)).toBe(
+      '<tg-document src="tfrfile://media/C%3A%2Fx%2Ff.pdf"></tg-document>',
+    );
+    expect(html('<tg-document src="javascript:alert(1)"></tg-document>')).toBe('');
+  });
+});
+
+describe('local media — picked from the device', () => {
+  const winPath = 'C:\\Users\\me\\Pictures\\cat.jpg';
+  const localUrl = localFileUrl(winPath);
+
+  it('rides the editor as a scheme URL the renderer can actually display', () => {
+    expect(localUrl).toBe('tfrfile://media/C%3A%2FUsers%2Fme%2FPictures%2Fcat.jpg');
+    // Paths come back POSIX-normalised — every consumer (fs in main, the
+    // protocol handler) accepts forward slashes on Windows as well.
+    expect(localUrlToPath(localUrl)).toBe('C:/Users/me/Pictures/cat.jpg');
+    expect(localUrlToPath('https://a/x.jpg')).toBe('');
+    expect(localUrlToPath('tfrfile://media/%2Fnope%2Fpic.png?ignored#frag')).toBe('/nope/pic.png');
+  });
+
+  it('is allowed through the editor media URL gate, but never as a link', () => {
+    expect(safeUrl(localUrl, MEDIA_SCHEMES)).toBe(localUrl);
+    expect(safeUrl(localUrl, LINK_SCHEMES)).toBe('');
+    expect(ser(`<img src="${localUrl}">`).media).toBe(1);
+  });
+
+  it('rewrites picked files into tg:// references with the media list', () => {
+    const { html: wire, files } = rewriteLocalMedia(
+      `<img src="${localUrl}"><video src="${localFileUrl('C:\\clip.mp4')}"></video>`,
+    );
+    expect(wire).toBe('<img src="tg://photo?id=m1"><video src="tg://video?id=m2"></video>');
+    expect(files).toEqual([
+      { id: 'm1', path: 'C:/Users/me/Pictures/cat.jpg', type: 'photo' },
+      { id: 'm2', path: 'C:/clip.mp4', type: 'video' },
+    ]);
+  });
+
+  it('uploads the same file once even when it is used twice', () => {
+    const { files } = rewriteLocalMedia(
+      `<img src="${localUrl}"><img src="${localUrl}">`,
+    );
+    expect(files).toEqual([{ id: 'm1', path: 'C:/Users/me/Pictures/cat.jpg', type: 'photo' }]);
+  });
+
+  it('classifies the media the uploading InputMedia expects', () => {
+    const { html: wire, files } = rewriteLocalMedia(
+      `<video src="${localFileUrl('C:\\anim.gif')}"></video>` +
+        `<audio src="${localFileUrl('C:\\note.ogg')}"></audio>` +
+        `<audio src="${localFileUrl('C:\\song.mp3')}"></audio>` +
+        `<tg-document src="${localFileUrl('C:\\r.pdf')}"></tg-document>`,
+    );
+    expect(wire).toBe(
+      '<video src="tg://video?id=m1"></video><audio src="tg://audio?id=m2"></audio>' +
+        '<audio src="tg://audio?id=m3"></audio><tg-document src="tg://document?id=m4"></tg-document>',
+    );
+    expect(files.map((f) => f.type)).toEqual(['animation', 'voice', 'audio', 'document']);
+  });
+
+  it('builds the rich_message media list and the upload manifest', () => {
+    const richMessage = buildInputRichMessage(
+      `<img src="${localUrl}" alt="cap">`,
+      { isRtl: true },
+    );
+    expect(richMessage.html.startsWith('<img src="tg://photo?id=m1"')).toBe(true);
+    expect(richMessage.media).toEqual([{ id: 'm1', media: { type: 'photo', media: 'attach://m1' } }]);
+    expect(richMessage._files).toEqual([{ name: 'm1', path: 'C:/Users/me/Pictures/cat.jpg' }]);
+    expect(richMessage.is_rtl).toBe(true);
+
+    // A message without local media stays exactly as before — no media field.
+    const plain = buildInputRichMessage('<p>text</p>');
+    expect(plain).toEqual({ html: '<p>text</p>' });
+  });
+
+  it('sendRichMessage bodies carry the manifest for the main process to upload', () => {
+    const body = buildRichMessageBody(`<img src="${localUrl}">`, '12345');
+    expect(body.rich_message.media).toHaveLength(1);
+    expect(body.rich_message._files[0]).toEqual({
+      name: 'm1',
+      path: 'C:/Users/me/Pictures/cat.jpg',
+    });
+  });
+
+  it('leaves the editor-only form untouched — remote URLs are not rewritten', () => {
+    const remote = html('<img src="https://a/p.jpg">');
+    const { html: wire, files } = rewriteLocalMedia(remote);
+    expect(wire).toBe(remote);
+    expect(files).toBeNull();
   });
 });
 

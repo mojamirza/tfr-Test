@@ -28,17 +28,27 @@ import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 
 import {
+  AnchorEntity,
+  ButtonsRow,
+  CustomEmoji,
+  DateTimeEntity,
   Details,
   Footer,
   GalleryBlock,
+  InlineButton,
   InlineMath,
+  ListAttributes,
   MapBlock,
   MathBlock,
-  MediaCaption,
   MediaBlock,
+  MediaCaption,
+  MediaSpoiler,
   PullQuote,
   QuoteAttribution,
+  ReferenceMark,
   Spoiler,
+  TableExtras,
+  ThinkingBlock,
 } from './extensions.js';
 import { MEDIA_SCHEMES, safeUrl } from '../../shared/html-serializer.js';
 
@@ -66,6 +76,63 @@ const SafeImage = Image.extend({
 });
 
 /**
+ * The extension list behind the composer, in one place — the hook uses it and
+ * the headless round-trip test drives the very same set, so command names can
+ * never drift from what the wire serializer understands.
+ * @param {{
+ *   placeholder: string,
+ *   t: (key: string) => string,
+ * }} options
+ * @returns {Array<import('@tiptap/core').Extensions>}
+ */
+export function buildExtensions({ placeholder, t }) {
+  return [
+    StarterKit.configure({
+      heading: { levels: [1, 2, 3, 4, 5, 6] },
+      codeBlock: { HTMLAttributes: { class: 'tg-pre' } },
+    }),
+    Underline,
+    Subscript,
+    Superscript,
+    Highlight.configure({ multicolor: false }),
+    TextStyle,
+    Color,
+    Link.configure({ openOnClick: false, autolink: true, protocols: ['http', 'https', 'tg'] }),
+    SafeImage.configure({ inline: false, allowBase64: false }),
+    TaskList,
+    TaskItem.configure({ nested: false }),
+    Table.configure({ resizable: true }),
+    TableRow,
+    TableCell,
+    TableHeader,
+    TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    Placeholder.configure({ placeholder }),
+    Spoiler,
+    InlineMath,
+    PullQuote,
+    QuoteAttribution,
+    Details,
+    Footer,
+    MathBlock,
+    MediaBlock,
+    MediaCaption,
+    GalleryBlock.configure({ t }),
+    MapBlock,
+    // Premium entities & article extras (Bot API rich messages).
+    CustomEmoji,
+    DateTimeEntity,
+    AnchorEntity,
+    ReferenceMark,
+    ButtonsRow,
+    InlineButton,
+    ThinkingBlock,
+    MediaSpoiler,
+    TableExtras,
+    ListAttributes,
+  ];
+}
+
+/**
  * @param {{
  *   placeholder: string,
  *   onUpdate: (html: string, text: string) => void,
@@ -75,39 +142,7 @@ const SafeImage = Image.extend({
  */
 export default function useTfrEditor({ placeholder, onUpdate, t }) {
   return useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3, 4, 5, 6] },
-        codeBlock: { HTMLAttributes: { class: 'tg-pre' } },
-      }),
-      Underline,
-      Subscript,
-      Superscript,
-      Highlight.configure({ multicolor: false }),
-      TextStyle,
-      Color,
-      Link.configure({ openOnClick: false, autolink: true, protocols: ['http', 'https', 'tg'] }),
-      SafeImage.configure({ inline: false, allowBase64: false }),
-      TaskList,
-      TaskItem.configure({ nested: false }),
-      Table.configure({ resizable: true }),
-      TableRow,
-      TableCell,
-      TableHeader,
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Placeholder.configure({ placeholder }),
-      Spoiler,
-      InlineMath,
-      PullQuote,
-      QuoteAttribution,
-      Details,
-      Footer,
-      MathBlock,
-      MediaBlock,
-      MediaCaption,
-      GalleryBlock.configure({ t }),
-      MapBlock,
-    ],
+    extensions: buildExtensions({ placeholder, t }),
     content: '',
     autofocus: true,
     onUpdate: ({ editor }) => {
