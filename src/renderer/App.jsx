@@ -29,18 +29,13 @@ import Toolbar from './components/Toolbar.jsx';
 import useTfrEditor from './components/useTfrEditor.js';
 import { I18nProvider, useI18n } from './i18n/index.js';
 import {
-  buildChecklistBody,
-  buildDraftBody,
-  buildEditBody,
-  buildRichMessageBody,
   checkChecklist,
   checkLimits,
   isPrivateChatId,
-  serializeEditorHtml,
 } from '../shared/html-serializer.js';
 import { DEFAULT_LANG, DEFAULT_THEME } from '../shared/constants.js';
 import { insertLink } from './lib/editor-actions.js';
-import { collectSendIssues } from './lib/send-analysis.js';
+import { analyzeSend } from './lib/send-analysis.js';
 
 const THEME_KEY = 'tfr-theme';
 const LANG_KEY = 'tfr-lang';
@@ -318,18 +313,21 @@ function Shell({ lang, onLangChange }) {
 
     setSending(true);
     try {
-      // A task list normally rides inside the message as Rich HTML's own
-      // `<input type="checkbox">` list, which works in any chat. Telegram's
-      // *interactive* checklist is a separate method, and it only works for a
-      // bot acting for a connected business account in a private chat — so it
-      // is used exactly when both of those hold.
-      const businessId = settings.businessConnectionId || '';
-      const asChecklist = !!businessId && isPrivateChatId(settings.chatId);
-      const message = serializeEditorHtml(html, {
-        inlineChecklist: !asChecklist,
-        // `<tg-thinking>` streams in draft mode only — plain sends drop it.
-        keepThinking: mode === 'draft',
+      // One shared prepare step serializes with the mode's exact options and
+      // collects the capability issues — the article inspector runs the very
+      // same function for its preview, so the two cannot drift apart.
+      const analysis = analyzeSend({
+        editorHtml: html,
+        chatId: settings.chatId,
+        mode,
+        editId: settings.editId,
+        draftId: DRAFT_ID,
+        isRtl,
+        skipEntities,
+        publish,
+        businessId: settings.businessConnectionId || '',
       });
+      const message = analysis.message;
       const limits = checkLimits(message);
       if (!limits.ok) {
         notify(`toast.limit.${limits.reason}`, 'error');
@@ -346,33 +344,33 @@ function Shell({ lang, onLangChange }) {
       // and some button kinds only work in particular chats. Blocking issues
       // stop the send; the rest ride one advisory toast — the article
       // inspector lists them with room to breathe.
-      const issues = collectSendIssues({ html: message.html, chatId: settings.chatId, mode });
-      const blocking = issues.find((issue) => issue.blocking);
+      const blocking = analysis.issues.find((issue) => issue.blocking);
       if (blocking) {
         notify(blocking.key, 'error');
         setSending(false);
         return;
       }
-      const advisories = issues.filter((issue) => !issue.blocking);
+      const advisories = analysis.issues.filter((issue) => !issue.blocking);
       if (advisories.length) {
         toast(advisories.map((issue) => tRef.current(issue.key)).join('  •  '), 'info');
       }
 
       // Only worth a word when the user configured a business connection and
       // still did not get the interactive form: the chat is the reason.
-      if (message.inlinedChecklist && businessId) {
+      if (message.inlinedChecklist && analysis.sendParams.businessConnectionId) {
         notify('toast.checklistPrivateOnly', 'info');
       }
 
-      if (asChecklist && message.checklist.length > 0) {
+      // Telegram takes a title above the tasks, and there is no way to send a
+      // task pre-ticked — only markChecklistTasksAsDone can do that later.
+      let checklistTitle = '';
+      if (analysis.checklistStep) {
         const valid = checkChecklist(message.checklist);
         if (!valid.ok) {
           notify(`toast.checklist.${valid.reason}`, 'error');
           setSending(false);
           return;
         }
-        // Telegram takes a title above the tasks, and there is no way to send a
-        // task pre-ticked — only markChecklistTasksAsDone can do that later.
         const title = await askText({
           titleKey: 'dialog.checklistTitle',
           placeholder: tRef.current('dialog.checklistTitlePlaceholder'),
@@ -381,53 +379,29 @@ function Shell({ lang, onLangChange }) {
           setSending(false);
           return;
         }
-        if (message.checklist.some((item) => item.done)) {
+        checklistTitle = title.trim() || tRef.current('dialog.checklistTitleFallback');
+        if (analysis.doneIgnored) {
           notify('toast.checklistDoneIgnored', 'info');
-        }
-        const result = await window.app.api(
-          'sendChecklist',
-          buildChecklistBody(message.checklist, settings.chatId, {
-            title: title.trim() || tRef.current('dialog.checklistTitleFallback'),
-            businessConnectionId: businessId,
-          }),
-        );
-        if (!result.ok) {
-          toast(`${tRef.current('toast.networkError')}: ${result.description}`, 'error');
-        } else if (!message.html) {
-          notify('toast.checklistSent', 'success');
         }
       }
 
-      if (message.html) {
-        // The publish sheet's parameters ride as sendParams; the body builder
-        // writes each documented field only when the author set it.
-        const options = {
-          isRtl,
-          skipEntityDetection: skipEntities,
-          sendParams: {
-            ...publish,
-            businessConnectionId: publish.businessConnectionId || businessId,
-          },
-        };
-        let result;
-        if (mode === 'draft') {
-          result = await window.app.api(
-            'sendRichMessageDraft',
-            buildDraftBody(message.html, settings.chatId, DRAFT_ID, options),
-          );
-        } else if (mode === 'edit') {
-          result = await window.app.api(
-            'editMessageText',
-            buildEditBody(message.html, settings.chatId, settings.editId, options),
-          );
-        } else {
-          result = await window.app.api(
-            'sendRichMessage',
-            buildRichMessageBody(message.html, settings.chatId, options),
-          );
-        }
-
-        if (result.ok) {
+      // The steps land in send order — a possible sendChecklist first, then
+      // the rich/edit/draft body. An empty steps list means nothing survived
+      // serialization at all.
+      const steps = analysis.requests({ title: checklistTitle });
+      if (!steps.length) {
+        notify('toast.nothingToSend', 'error');
+        return;
+      }
+      for (const step of steps) {
+        const result = await window.app.api(step.method, step.body);
+        if (step.kind === 'checklist') {
+          if (!result.ok) {
+            toast(`${tRef.current('toast.networkError')}: ${result.description}`, 'error');
+          } else if (!message.html) {
+            notify('toast.checklistSent', 'success');
+          }
+        } else if (result.ok) {
           notify(
             mode === 'draft' ? 'toast.draftSent' : mode === 'edit' ? 'toast.edited' : 'toast.sent',
             'success',
@@ -435,8 +409,6 @@ function Shell({ lang, onLangChange }) {
         } else {
           toast(`${tRef.current('toast.networkError')}: ${result.description}`, 'error');
         }
-      } else if (message.checklist.length === 0) {
-        notify('toast.nothingToSend', 'error');
       }
     } catch {
       notify('toast.networkError', 'error');
@@ -610,7 +582,16 @@ function Shell({ lang, onLangChange }) {
             open
             onClose={() => setInspectorOpen(false)}
             editorHtml={html}
-            sendParams={{ chatId: settings.chatId, mode, publish }}
+            sendParams={{
+          chatId: settings.chatId,
+          mode,
+          editId: settings.editId,
+          draftId: DRAFT_ID,
+          isRtl,
+          skipEntities,
+          publish,
+          businessId: settings.businessConnectionId || '',
+        }}
           />
         )}
       </main>

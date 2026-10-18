@@ -502,6 +502,33 @@ describe('inline buttons', () => {
     expect(out.blocks).toBe(3);
   });
 
+  it('counts a slideshow plus its media — the limits page includes nested blocks', () => {
+    const out = ser(
+      '<div class="tg-gallery" data-kind="slideshow" data-images="https://a/1.jpg,https://a/2.mp4"></div>',
+    );
+    // The wrapper is one block; each media entry is a block of its own.
+    expect(out.blocks).toBe(3);
+    expect(out.media).toBe(2);
+  });
+
+  it('counts a collage the same way', () => {
+    const out = ser(
+      '<div class="tg-gallery" data-kind="collage" data-images="https://a/1.jpg,https://a/2.jpg,https://a/3.jpg"></div>',
+    );
+    expect(out.blocks).toBe(4);
+  });
+
+  it('counts a table and its rows — "table rows" are documented blocks', () => {
+    const out = ser('<table><tr><td>a</td></tr><tr><td>b</td></tr></table>');
+    expect(out.blocks).toBe(3);
+  });
+
+  it('an empty row never reaches the wire and never counts', () => {
+    const out = ser('<table><tr><td>a</td></tr><tr></tr></table>');
+    expect(out.blocks).toBe(2);
+    expect(out.html).not.toContain('<tr></tr>');
+  });
+
   it('keeps the link style only on callback buttons (10.3)', () => {
     // "The style 'link' is allowed only for callback buttons" — for anything
     // else the style is not carried at all rather than risking an API error.

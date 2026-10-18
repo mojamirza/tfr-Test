@@ -655,6 +655,9 @@ function figcaptionOf(el) {
 function tableToHtml(el, state) {
   const rows = Array.from(el.querySelectorAll('tr'));
   if (!rows.length) return '';
+  // The block meter follows the live limits page: "Up to 500 blocks,
+  // including … table rows" — the table and every row it actually emits
+  // count, cells and the caption ride inside them.
   state.blocks += 1;
 
   let open = '<table bordered';
@@ -669,6 +672,8 @@ function tableToHtml(el, state) {
   for (const tr of rows) {
     const cells = Array.from(tr.querySelectorAll('th, td')).slice(0, LIMITS.TABLE_COLUMNS);
     if (!cells.length) continue;
+    // Every row that reaches the wire is one of the documented blocks.
+    state.blocks += 1;
     let row = '';
     for (const cell of cells) {
       let attrs = '';
@@ -865,7 +870,10 @@ function galleryToHtml(el, state) {
 
   if (!sources.length) return '';
   const wrapper = el.getAttribute('data-kind') === 'collage' ? 'tg-collage' : 'tg-slideshow';
-  state.blocks += 1;
+  // The slideshow/collage is one block whose entries are media blocks of
+  // their own — the live limits page counts "nested blocks", so a full
+  // slideshow meter charges the wrapper plus every entry.
+  state.blocks += 1 + sources.length;
   state.media += sources.length;
   // Each entry is a { kind, src } pair so a slideshow can mix photos, videos
   // and clips exactly like Telegram's own example —

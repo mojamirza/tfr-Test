@@ -8,12 +8,12 @@
 <p align="center"><em>Because bots should not have more rights than humans.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.7.1-2ca5e0" alt="Version 5.7.1">
+  <img src="https://img.shields.io/badge/version-5.7.2-2ca5e0" alt="Version 5.7.2">
   <img src="https://img.shields.io/badge/Bot%20API-10.3-2ca5e0?logo=telegram&logoColor=white" alt="Bot API 10.3">
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" alt="React 19">
   <img src="https://img.shields.io/badge/TipTap-2-8b5cf6" alt="TipTap 2">
-  <img src="https://img.shields.io/badge/tests-442%20passing-4fc3a1" alt="442 tests">
+  <img src="https://img.shields.io/badge/tests-460%20passing-4fc3a1" alt="460 tests">
   <img src="https://img.shields.io/badge/license-MIT-8b99a7" alt="MIT">
 </p>
 
@@ -206,12 +206,15 @@ And while you write:
   with one click; the current message is also mirrored to storage and offered back after a restart
 - **Live preview** — a real Telegram bubble, rendered from the same document you are editing
 - **Article inspector** — outline, live counts (characters, blocks, media, nesting depth) and the
-  exact request the app is about to send, token-free
+  exact send steps the app is about to run — a possible `sendChecklist` first, then the rich
+  request — through one shared prepare, token-free
 - **Publish options** — topic ID, direct-messages topic, reply target, silent and protect-content
   toggles, message effect and business connection, applied only to the fields you set
 - **Capability warnings** — before the API can answer with an opaque error: drafts cannot carry
-  media, content may not nest deeper than 16 levels, Web App buttons need a private chat, Login
-  URLs must be whitelisted with @BotFather, inline-query buttons need a bot with inline mode
+  media, content may not nest deeper than 16 levels, Web App buttons need a private chat and are
+  not supported for business-account messages, inline-query buttons drop on business connections
+  and in direct-messages chats, message effects belong to private chats, Login URLs must be
+  whitelisted with @BotFather
 - **Markdown shortcuts** — `## `, `> `, `- `, `1. `, ` ``` `, `**bold**`, `` `code` ``
 - **Insert palette** — one search box over every block and format
 - **Dark and light themes**, English and Persian UI, full right-to-left support

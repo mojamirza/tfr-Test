@@ -66,7 +66,11 @@ describe('the renderer only asks for methods the allowlist permits', () => {
   const requested = new Set();
   for (const file of jsFiles(rendererDir)) {
     const source = fs.readFileSync(file, 'utf8');
+    // Two shapes carry a method name: the direct `window.app.api('send…')`
+    // call sites, and the wire steps defined in the shared send analysis
+    // (`method: 'sendRichMessage'`) which the send loop dispatches through.
     for (const m of source.matchAll(/\.api\(\s*\n?\s*'([^']+)'/g)) requested.add(m[1]);
+    for (const m of source.matchAll(/\bmethod:\s*'([^']+)'/g)) requested.add(m[1]);
   }
 
   it('finds the calls it is meant to be checking', () => {

@@ -7,7 +7,8 @@
  *              the nesting depth Telegram caps at 16 levels
  *   Notes      the capability warnings a send would raise
  *   Preview    the exact Rich HTML that would go on the wire, or the
- *              serialized request body
+ *              serialized request steps, one per method — the output of the
+ *              very same prepare the send flow runs
  *
  * @module components/Inspector
  */
@@ -15,13 +16,8 @@
 import { useMemo, useState } from 'react';
 import { BlockType } from '../../shared/block-types.js';
 import { parseAllBlocks } from '../../shared/block-parser.js';
-import {
-  buildRichMessageBody,
-  checkNestingDepth,
-  LIMITS,
-  serializeEditorHtml,
-} from '../../shared/html-serializer.js';
-import { collectSendIssues } from '../lib/send-analysis.js';
+import { checkNestingDepth, LIMITS } from '../../shared/html-serializer.js';
+import { analyzeSend } from '../lib/send-analysis.js';
 import { CloseIcon } from './Icons.jsx';
 import { useI18n } from '../i18n/index.js';
 
@@ -77,7 +73,22 @@ export default function Inspector({ open, onClose, editorHtml, sendParams }) {
   const analysis = useMemo(() => {
     if (!open) return null;
     try {
-      const message = serializeEditorHtml(editorHtml);
+      // The exact prepare a send runs — one function, so the preview cannot
+      // drift from the wire: the mode decides keepThinking (drafts stream it)
+      // and the checklist destination, and the send parameters the bodies
+      // write are the sheet's, with Settings' business id as the fallback.
+      const prepared = analyzeSend({
+        editorHtml,
+        chatId: sendParams.chatId,
+        mode: sendParams.mode,
+        editId: sendParams.editId,
+        draftId: sendParams.draftId,
+        isRtl: sendParams.isRtl,
+        skipEntities: sendParams.skipEntities,
+        publish: sendParams.publish,
+        businessId: sendParams.businessId,
+      });
+      const message = prepared.message;
       const nesting = checkNestingDepth(message.html);
       const doc = new DOMParser().parseFromString(`<body>${message.html}</body>`, 'text/html');
       const outline = parseAllBlocks(doc.body).map((block, index) => {
@@ -91,21 +102,15 @@ export default function Inspector({ open, onClose, editorHtml, sendParams }) {
           text: blockTitleOf(block),
         };
       });
-      const issues = collectSendIssues({
-        html: message.html,
-        chatId: sendParams.chatId,
-        mode: sendParams.mode,
-      });
-      let request = '';
-      try {
-        const body = buildRichMessageBody(message.html, sendParams.chatId || '', {
-          sendParams: sendParams.publish,
-        });
-        request = JSON.stringify(body, null, 2);
-      } catch {
-        request = '';
-      }
-      return { message, nesting, outline, issues, request };
+      // The request preview lists every step in send order — a possible
+      // `sendChecklist` first (the title is asked at send, so it previews
+      // empty), then the rich/draft/edit body. A draft with a
+      // `<tg-thinking>` block must show exactly that, not the dropped form.
+      const request = prepared
+        .requests()
+        .map((step) => `${step.method}\n${JSON.stringify(step.body, null, 2)}`)
+        .join('\n\n');
+      return { message, nesting, outline, issues: prepared.issues, request };
     } catch {
       return {
         message: { html: '', chars: 0, blocks: 0, media: 0 },

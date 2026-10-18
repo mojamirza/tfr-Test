@@ -1,5 +1,32 @@
 # Changelog
 
+## [5.7.2] - 2026-10-19
+
+### Fixed — the inspector now previews the same request a send runs
+- **Request parity** — the inspector used to build its own `sendRichMessage`
+  body regardless of the mode and re-serialize without the live options:
+  drafts lost their `<tg-thinking>` block in the preview, edit modes showed a
+  send body, and the interactive-checklist step was invisible. A shared
+  `analyzeSend` now serializes once with the mode's exact options (thinking
+  rides drafts, the interactive checklist only for a business connection on a
+  private chat), collects the capability issues and exposes the send steps in
+  order — a possible `sendChecklist` first, then the rich/draft/edit body.
+  The send flow consumes the very same object, so the preview and the wire
+  agree by construction
+
+### Added — preflight for business-connection button rules
+- The analyzer now receives the send parameters, and surfaces Telegram's
+  documented button restrictions as **blocking** issues: Web App buttons
+  cannot ride a message sent on behalf of a business account (neither can the
+  inline-query buttons, which also drop in direct-messages chats), and
+  *message_effect_id* is private-chat only while the publish sheet offers the
+  field for any chat. A Web App button outside a private chat is likewise
+  blocking now — Telegram rejects it instead of hiding it
+- The block meter follows the live limits page closely: "Up to 500 blocks,
+  **including nested blocks**" — a slideshow or collage now charges itself
+  plus every media entry, and a table charges every row it emits, so an
+  article near the limit can no longer look valid locally and fail at send
+
 ## [5.7.1] - 2026-10-18
 
 ### Fixed — the buttons-row dialog took the window down
