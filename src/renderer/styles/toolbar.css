@@ -2,14 +2,17 @@
  * Toolbar — a floating card that holds the formatting controls:
  *
  *   ( ↶ )( ↷ ) │ ( Aa )( B )( list )( table )( link )( media )( Σ )
+ *                │ ( buttons )( inline )( emoji )( @ )( time )( thinking )( collage )
  *
- * The modern-minimal language: ghost icon buttons, no borders, one hairline
- * divider between the history group and the formatting group, and a single
- * accent tint for whatever is active.
+ * The modern-minimal language: ghost icon buttons, no borders, a hairline
+ * divider between the groups, and a single accent tint for whatever is
+ * active. The groups wrap onto further rows on a narrow window so one — every
+ * button stays visible; nothing is scrolled out of reach.
  */
 
 .tfr-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   margin: 10px 12px 0;
@@ -19,12 +22,6 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
   flex-shrink: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.tfr-toolbar::-webkit-scrollbar {
-  display: none;
 }
 
 .tb-group {

@@ -143,6 +143,7 @@ buttons and one salmon send button.
 ```
 ┌ ⚙ ▣ ¶ ────────────────────────────────────────────  ─  □  ✕ ┐
 │  ( ↶ )( ↷ )   ( Aa )( B )( ☰ )( ▦ )( 🔗 )( 🖼 )( Σ )         │
+│  ( ▤ )( ⊞ )( ☺ )( @ )( 🕐 )( 💭 )( ⧉ )                       │
 │                                                              │
 │  Message                                    │  Live preview  │
 │                                             │                │
@@ -160,7 +161,8 @@ buttons and one salmon send button.
 | 🔗 | **Insert link** → a *Create link* panel with **Text** and **URL** fields |
 | 🖼 | **Insert media** → opens the **device picker** (photos/videos from local storage, several become a slideshow; audio and documents get their own pickers) · cancel it to paste remote URLs instead · Location, **Spoiler** (blur the media until tapped), **Caption…** (the `<figcaption>` under a media item) |
 | Σ | **Insert formula** → asks for the formula, drops in a math block |
-| ✦ | The insert palette — search every block and format by name |
+| ▤ ⊞ ☺ @ 🕐 💭 ⧉ | **The insert features, now on the toolbar too** → **Buttons row**, the 10.3 **Inline button in text**, **Custom emoji**, **Mention**, **Formatted time**, the **Thinking** placeholder, **Collage** — each a visible button, no palette hunt |
+| ✦ | The insert palette — search every block and format by name (these same actions sit one `Toolbar` call away) |
 | 🗑 ➤ | Clear the message · Send it (right-click to pick rich message, draft or edit, and the *skip auto-detection* toggle) |
 
 The title bar holds the settings gear with a connection dot, the **local drafts** folder, the
@@ -377,7 +379,7 @@ src/
 │   ├── App.jsx                 shell: state, send logic, shortcuts
 │   ├── components/
 │   │   ├── TitleBar.jsx        frameless window chrome
-│   │   ├── Toolbar.jsx         the seven-button strip + menus
+│   │   ├── Toolbar.jsx         the formatting strip, the insert-feature buttons + menus
 │   │   ├── ActionMenu.jsx      menu renderer, two levels deep
 │   │   ├── Popover.jsx         anchored floating panel
 │   │   ├── TableBubble.jsx     floating table row/column controls

@@ -63,6 +63,11 @@ covered by tests:
   for menus and the table bubble — now a floating pill — a floating card toolbar with group
   dividers, a centered document column in the editor, a gradient send button with a glow,
   rounder dialogs and sheets, and a flat title bar
+- The toolbar now surfaces the wand's features directly: the buttons row, the 10.3 inline
+  button, custom emoji, mention, formatted time, the thinking placeholder and collage each sit
+  as a visible own button — the wand palette keeps them (and the long tail: anchors, references,
+  URL media) for searching; the strip wraps onto further rows on narrow windows so no control
+  ever scrolls out of reach
 
 ### Fixed — tables in right-to-left messages
 - Table cells now follow the writing direction (`text-align: start`) instead of being pinned left,

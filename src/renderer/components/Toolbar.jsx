@@ -1,19 +1,23 @@
 /**
  * Toolbar — the rounded strip above the editor:
  *
- *   ( ↶ )( ↷ )   ( Aa )( B )( list )( table )( link )( media )( Σ )
+ *   ( ↶ )( ↷ ) │ ( Aa )( B )( list )( table )( link )( media )( Σ )
+ *                 │ ( buttons )( inline )( emoji )( @ )( time )( thinking )( collage )
  *
- * History sits in its own group; the seven formatting buttons follow.
+ * History sits in its own group; the formatting buttons follow; the insert
+ * buttons bring the former palette-only features up here so they are visible
+ * instead of hidden behind the wand. The groups wrap onto further rows on a
+ * narrow window — no button is ever scrolled out of reach.
  *
- * Aa, B, list and media open a vertical menu; table, link and Σ act straight
- * away (insert a table, open the "Create link" panel, ask for a formula).
- * Premium entities (custom emoji, date-time, buttons, …) live in the insert
- * palette behind the wand, not here — this strip stays seven buttons wide.
+ * Aa, B, list and media open a vertical menu; the rest act straight away
+ * (insert a table, open the "Create link" panel, ask a formula, join text…).
+ * The wand's palette keeps everything — searchable — for the long tail
+ * (anchors, references, URL media and so on).
  *
  * @module components/Toolbar
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import ActionMenu from './ActionMenu.jsx';
 import Popover from './Popover.jsx';
 import {
@@ -32,11 +36,29 @@ import {
   LIST_ACTIONS,
   MEDIA_ACTIONS,
   TEXT_STYLE_ACTIONS,
+  EXTRA_ACTIONS,
+  PREMIUM_ACTIONS,
   insertFormula,
   insertLink,
   insertTable,
 } from '../lib/editor-actions.js';
 import { useI18n } from '../i18n/index.js';
+
+/**
+ * Palette features that get a visible toolbar button of their own, in order.
+ * They are drawn from the palette's own action records, so the toolbar and
+ * the wand share one code path — label, icon, active state and run are all
+ * the same registry entry.
+ */
+const INSERT_IDS = [
+  'buttons',
+  'inlineButton',
+  'customEmoji',
+  'mention',
+  'dateTime',
+  'thinking',
+  'collage',
+];
 
 /**
  * A single outlined toolbar pill.
@@ -117,6 +139,12 @@ export default function Toolbar({ editor, ctx }) {
     { id: 'media', actions: MEDIA_ACTIONS, anchor: mediaRef, align: 'center' },
   ];
 
+  /** The palette features that get a visible button here, in INSERT_IDS order. */
+  const inserts = useMemo(() => {
+    const all = [...PREMIUM_ACTIONS, ...EXTRA_ACTIONS];
+    return INSERT_IDS.map((id) => all.find((action) => action.id === id)).filter(Boolean);
+  }, []);
+
   const canUndo = !!editor && editor.can().undo();
   const canRedo = !!editor && editor.can().redo();
 
@@ -186,6 +214,24 @@ export default function Toolbar({ editor, ctx }) {
           label={t('toolbar.formula')}
           onClick={() => direct(insertFormula)}
         />
+      </div>
+
+      <span className="tb-sep" />
+
+      {/* The insert features that used to be reachable only through the wand
+          palette — one visible button each, sharing the palette's own action
+          records so toolbar and wand never drift apart. */}
+      <div className="tb-group">
+        {inserts.map((action) => (
+          <TbButton
+            key={action.id}
+            icon={action.icon}
+            label={t(action.i18nKey)}
+            active={!!editor && !!action.isActive && action.isActive(editor)}
+            disabled={!!editor && !!action.enabled && !action.enabled(editor)}
+            onClick={() => run(action)}
+          />
+        ))}
       </div>
 
       {menus.map((config) => (
