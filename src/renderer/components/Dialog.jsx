@@ -265,7 +265,7 @@ export function DialogProvider({ children }) {
         setBtnRows(
           (options.buttons || []).slice(0, 8).map((b) => ({ ...BLANK_ROW, ...b })),
         );
-        setDialog({ kind: 'buttons', resolve });
+        setDialog({ kind: 'buttons', options: {}, resolve });
       }),
     [],
   );
@@ -287,7 +287,7 @@ export function DialogProvider({ children }) {
         // One searchable list. The query doubles as the value, so a language
         // Telegram knows but the list does not can simply be typed.
         setCodePick({ query: options.value || '' });
-        setDialog({ kind: 'code', resolve });
+        setDialog({ kind: 'code', options: {}, resolve });
       }),
     [],
   );
@@ -307,7 +307,7 @@ export function DialogProvider({ children }) {
           existing: !!options.existing,
           error: '',
         });
-        setDialog({ kind: 'map', resolve });
+        setDialog({ kind: 'map', options: {}, resolve });
       }),
     [],
   );
@@ -320,7 +320,7 @@ export function DialogProvider({ children }) {
           open: !!options.open,
           existing: !!options.existing,
         });
-        setDialog({ kind: 'details', resolve });
+        setDialog({ kind: 'details', options: {}, resolve });
       }),
     [],
   );
@@ -463,7 +463,7 @@ export function DialogProvider({ children }) {
           <div className={`dialog${dialog.kind === 'confirm' ? ' dialog-confirm' : ''}`}>
             <div className="dialog-title">
               {t(
-                TITLE_KEYS[dialog.kind] || dialog.options.titleKey || 'dialog.ok',
+                TITLE_KEYS[dialog.kind] || dialog.options?.titleKey || 'dialog.ok',
               )}
             </div>
 
@@ -474,9 +474,9 @@ export function DialogProvider({ children }) {
                 type="text"
                 value={value}
                 placeholder={
-                  dialog.options.placeholderKey
+                  dialog.options?.placeholderKey
                     ? t(dialog.options.placeholderKey)
-                    : dialog.options.placeholder || ''
+                    : dialog.options?.placeholder || ''
                 }
                 onChange={(event) => setValue(event.target.value)}
                 onKeyDown={(event) => event.key === 'Enter' && accept()}
@@ -600,7 +600,7 @@ export function DialogProvider({ children }) {
                   />
                 </div>
                 <p className="dialog-hint">{t('premium.inlineHint')}</p>
-                {dialog.options.existing && (
+                {dialog.kind === 'inlineBtn' && dialog.options?.existing && (
                   <button
                     type="button"
                     className="dialog-btn block danger"
@@ -760,7 +760,7 @@ export function DialogProvider({ children }) {
             )}
 
             {dialog.kind === 'confirm' && (
-              <div className="dialog-body">{t(dialog.options.bodyKey || '')}</div>
+              <div className="dialog-body">{t(dialog.options?.bodyKey || '')}</div>
             )}
 
             <div className="dialog-actions">
@@ -769,7 +769,7 @@ export function DialogProvider({ children }) {
               </button>
               <button
                 type="button"
-                className={`dialog-btn primary${dialog.options.danger ? ' danger' : ''}`}
+                className={`dialog-btn primary${dialog.options?.danger ? ' danger' : ''}`}
                 disabled={
                   (dialog.kind === 'link' && !linkUrl.trim()) ||
                   (dialog.kind === 'inlineBtn' && (!btnSingle || !btnSingle.label.trim()))
@@ -779,7 +779,7 @@ export function DialogProvider({ children }) {
                 {t(
                   dialog.kind === 'link'
                     ? 'link.createBtn'
-                    : dialog.options.confirmKey || 'dialog.ok',
+                    : dialog.options?.confirmKey || 'dialog.ok',
                 )}
               </button>
             </div>

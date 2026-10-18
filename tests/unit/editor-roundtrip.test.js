@@ -18,6 +18,7 @@ import { Editor } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
 import { buildExtensions } from '../../src/renderer/components/useTfrEditor.js';
 import { serializeEditorHtml } from '../../src/shared/html-serializer.js';
+import { PREMIUM_ACTIONS } from '../../src/renderer/lib/editor-actions.js';
 
 /** A translator that hands the key straight back — palettes need one, tests don't. */
 const noopT = (key) => key;
@@ -56,6 +57,33 @@ afterAll(() => {
   for (const editor of editors) {
     if (!editor.isDestroyed) editor.destroy();
   }
+});
+
+describe('the toolbar insert path through a real editor', () => {
+  it('a registry action with a dialog ctx lands the row', async () => {
+    // The action unit tests drive a mock editor, so this is the one place
+    // that pins the full toolbar → askButtons → insertContent → DOM chain.
+    const editor = makeEditor('<p>Hello</p>');
+    editor.commands.focus('end');
+
+    const action = PREMIUM_ACTIONS.find((a) => a.id === 'buttons');
+    expect(action).toBeTruthy();
+
+    const notifyCalls = [];
+    await action.run(editor, {
+      askButtons: async () => ({
+        align: 'center',
+        buttons: [{ type: 'url', label: 'Go', value: 'https://t.me', style: 'primary' }],
+      }),
+      notify: (key, type) => notifyCalls.push([key, type]),
+    });
+
+    // Nothing bounced into an error toast on the way.
+    expect(notifyCalls).toEqual([]);
+    expect(editor.getHTML()).toContain('tg-buttons');
+    const { html } = serializeEditorHtml(editor.getHTML());
+    expect(html).toContain('<tg-button-row align="center">');
+  });
 });
 
 describe('a real editor round-trips the premium blocks', () => {

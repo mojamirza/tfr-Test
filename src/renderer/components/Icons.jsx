@@ -264,6 +264,51 @@ export const CellLayoutIcon = (p) => (
   </Svg>
 );
 
+/* Cell alignment — text-like bars for horizontal, column bars for vertical;
+   the offset middle bar marks which edge or line the content hugs. */
+
+export const AlignCellLeftIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4 6.5h16M4 12h9M4 17.5h16" />
+    <path d="M4 4.5v15" opacity=".45" />
+  </Svg>
+);
+
+export const AlignCellCenterIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4 6.5h16M7.5 12h9M4 17.5h16" />
+    <path d="M12 4.5v15" opacity=".45" />
+  </Svg>
+);
+
+export const AlignCellRightIcon = (p) => (
+  <Svg {...p}>
+    <path d="M4 6.5h16M11 12h9M4 17.5h16" />
+    <path d="M20 4.5v15" opacity=".45" />
+  </Svg>
+);
+
+export const AlignCellTopIcon = (p) => (
+  <Svg {...p}>
+    <path d="M6 4.5v15M12 4.5v9M18 4.5v15" />
+    <path d="M4 4.5h16" opacity=".45" />
+  </Svg>
+);
+
+export const AlignCellMiddleIcon = (p) => (
+  <Svg {...p}>
+    <path d="M6 4.5v15M12 7.5v9M18 4.5v15" />
+    <path d="M4 12h16" opacity=".45" />
+  </Svg>
+);
+
+export const AlignCellBottomIcon = (p) => (
+  <Svg {...p}>
+    <path d="M6 4.5v15M12 10.5v9M18 4.5v15" />
+    <path d="M4 19.5h16" opacity=".45" />
+  </Svg>
+);
+
 export const DetailsIcon = (p) => (
   <Svg {...p}>
     <path d="M4 6.5h16M4 17.5h16" />

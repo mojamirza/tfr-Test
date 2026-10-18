@@ -1,5 +1,35 @@
 # Changelog
 
+## [5.7.1] - 2026-10-18
+
+### Fixed — the buttons-row dialog took the window down
+- **Clicking the toolbar's buttons-row button crashed the app** — the shared
+  dialog actions row read `dialog.options.danger`/`.confirmKey`, but the
+  buttons-row, map, details and code-language dialogs were created without an
+  `options` field; React unmounted at the title line before any panel could
+  render. The inline-button-in-text dialog worked because it happened to pass
+  `options`. Every `dialog.options` read is now null-safe, the four factories
+  pass an explicit `options: {}`, and a new mounted-render test file
+  (`dialog-render.test.js`) opens **every** dialog kind through the real
+  provider so a crash like this can never ship silently again — the vitest run
+  also gained the app's own React plugin, since no component test could even
+  import `.jsx` sources before
+
+### Changed — the table Layout popover, redrawn
+- The per-cell/per-table popover is now two labelled sections: **Cell** sets
+  horizontal and vertical alignment with one segmented control per axis (real
+  stroke icons instead of unicode glyphs, the active edge filled), and
+  **Table** carries the striped, compact and caption options as true pill
+  switches; the caption row shows the caption's current text ("None set" when
+  empty) and the toggles stay open so several options can be set in one pass
+
+### Note — what Telegram does not let buttons do
+- Checked against the live docs: the `align` attribute exists only on
+  `tg-button-row` (already selectable in the row dialog); **the alignment of a
+  button's label text and the button's size are not part of the Rich HTML
+  grammar** — chips are laid out by Telegram itself, so the app will not fake
+  editor-only styling that would mislead about the final message
+
 ## [5.7.0] - 2026-10-18
 
 ### Fixed — six spec-level gaps, each checked against the live Bot API docs

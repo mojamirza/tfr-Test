@@ -1,7 +1,12 @@
 import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
 import path from 'path';
 
 export default defineConfig({
+  // The React plugin is what gives `.jsx` sources the automatic JSX runtime
+  // the production build uses — without it a mounted component test cannot
+  // even import Dialog.jsx.
+  plugins: [react()],
   test: {
     environment: 'jsdom',
     globals: true,

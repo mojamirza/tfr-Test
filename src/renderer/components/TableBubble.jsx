@@ -6,9 +6,11 @@
  *     [ +row −row │ +column −column │ ⊞ layout ▾ │ 🗑 ]
  *
  * Column widths are dragged directly on the table borders (the Table
- * extension is configured with `resizable`). The Layout popover carries the
- * table options Rich HTML documents on the `<table>` tag: per-cell
- * `align`/`valign`, the `striped` and `compact` toggles, and its caption.
+ * extension is configured with `resizable`). The Layout popover is two
+ * sections: the CELL half sets per-cell `align`/`valign` with one segmented
+ * control per axis, and the TABLE half carries the table options Rich HTML
+ * documents on the `<table>` tag — `striped`, `compact` and the caption, as
+ * real switches with the caption's current text shown on its row.
  *
  * @module components/TableBubble
  */
@@ -16,6 +18,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { BubbleMenu } from '@tiptap/react';
 import {
+  AlignCellBottomIcon,
+  AlignCellCenterIcon,
+  AlignCellLeftIcon,
+  AlignCellMiddleIcon,
+  AlignCellRightIcon,
+  AlignCellTopIcon,
   CellLayoutIcon,
   ColAddIcon,
   ColRemoveIcon,
@@ -26,10 +34,43 @@ import {
 import { useI18n } from '../i18n/index.js';
 
 const ALIGNS = ['left', 'center', 'right'];
-const ALIGN_LABEL = { left: '◧', center: '▣', right: '◨' };
+const ALIGN_ICONS = [AlignCellLeftIcon, AlignCellCenterIcon, AlignCellRightIcon];
 
 const VALIGNS = ['top', 'middle', 'bottom'];
-const VALIGN_LABEL = { top: '⌃', middle: '⎯', bottom: '⌄' };
+const VALIGN_ICONS = [AlignCellTopIcon, AlignCellMiddleIcon, AlignCellBottomIcon];
+
+/** The segment glyph of one alignment state. */
+function AlignIcon({ index, vertical = false }) {
+  const Icon = vertical ? VALIGN_ICONS[index] : ALIGN_ICONS[index];
+  return <Icon size={16} />;
+}
+
+/**
+ * One switch row of the table section — a real pill switch instead of a dot,
+ * so on and off read at a glance.
+ * @param {{
+ *   label: string,
+ *   on: boolean,
+ *   onClick: () => void,
+ * }} props
+ */
+function ToggleRow({ label, on, onClick }) {
+  return (
+    <button
+      type="button"
+      className="table-bubble-switch"
+      data-on={on}
+      aria-pressed={on}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onClick}
+    >
+      <span className="table-bubble-switch-label">{label}</span>
+      <span className="table-bubble-pill">
+        <span className="table-bubble-knob" />
+      </span>
+    </button>
+  );
+}
 
 /** One quiet icon button of the bar. */
 function BubbleBtn({ icon, title, onClick, active = false, disabled = false, danger = false }) {
@@ -157,59 +198,71 @@ export default function TableBubble({ editor, ctx }) {
 
         {layoutOpen && (
           <div className="table-bubble-pop" ref={popRef}>
-            <div className="table-bubble-label">{t('table.cellAlign')}</div>
-            <div className="table-bubble-grid" role="group" aria-label={t('table.cellAlign')}>
-              {ALIGNS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={`table-bubble-icon${cellAlign === value ? ' active' : ''}`}
-                  title={t(`table.align${value.charAt(0).toUpperCase()}${value.slice(1)}`)}
-                  aria-label={t(`table.align${value.charAt(0).toUpperCase()}${value.slice(1)}`)}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => setCellAttr('align', cellAlign, value)}
-                >
-                  {ALIGN_LABEL[value]}
-                </button>
-              ))}
-              {VALIGNS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={`table-bubble-icon${cellValign === value ? ' active' : ''}`}
-                  title={t(`table.valign${value.charAt(0).toUpperCase()}${value.slice(1)}`)}
-                  aria-label={t(`table.valign${value.charAt(0).toUpperCase()}${value.slice(1)}`)}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => setCellAttr('valign', cellValign, value)}
-                >
-                  {VALIGN_LABEL[value]}
-                </button>
-              ))}
+            {/* The cell half: one segmented control per axis, with the active
+                edge filled — much easier to read than unicode glyphs. */}
+            <div className="table-bubble-label">{t('table.sectionCell')}</div>
+            <div className="table-bubble-row">
+              <span className="table-bubble-hint">{t('table.alignHoriz')}</span>
+              <div className="table-bubble-seg" role="group" aria-label={t('table.cellAlign')}>
+                {ALIGNS.map((value, index) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`table-bubble-seg-btn${cellAlign === value ? ' active' : ''}`}
+                    title={t(`table.align${value.charAt(0).toUpperCase()}${value.slice(1)}`)}
+                    aria-label={t(`table.align${value.charAt(0).toUpperCase()}${value.slice(1)}`)}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => setCellAttr('align', cellAlign, value)}
+                  >
+                    <AlignIcon index={index} />
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="table-bubble-opts">
+            <div className="table-bubble-row">
+              <span className="table-bubble-hint">{t('table.alignVert')}</span>
+              <div className="table-bubble-seg" role="group" aria-label={t('table.cellValign')}>
+                {VALIGNS.map((value, index) => (
+                  <button
+                    key={value}
+                    type="button"
+                    className={`table-bubble-seg-btn${cellValign === value ? ' active' : ''}`}
+                    title={t(`table.valign${value.charAt(0).toUpperCase()}${value.slice(1)}`)}
+                    aria-label={t(`table.valign${value.charAt(0).toUpperCase()}${value.slice(1)}`)}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => setCellAttr('valign', cellValign, value)}
+                  >
+                    <AlignIcon vertical index={index} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* The table half: real switches with the caption's current text. */}
+            <div className="table-bubble-label">{t('table.sectionTable')}</div>
+            <div className="table-bubble-toggles">
+              <ToggleRow
+                label={t('table.striped')}
+                on={!!table.striped}
+                onClick={() => editor.chain().focus().toggleTableStriped().run()}
+              />
+              <ToggleRow
+                label={t('table.compact')}
+                on={!!table.compact}
+                onClick={() => editor.chain().focus().toggleTableCompact().run()}
+              />
               <button
                 type="button"
-                className={`table-bubble-toggle${table.striped ? ' active' : ''}`}
-                onClick={run((c) => c.toggleTableStriped())}
-              >
-                <span className="table-bubble-dot" data-on={!!table.striped} />
-                {t('table.striped')}
-              </button>
-              <button
-                type="button"
-                className={`table-bubble-toggle${table.compact ? ' active' : ''}`}
-                onClick={run((c) => c.toggleTableCompact())}
-              >
-                <span className="table-bubble-dot" data-on={!!table.compact} />
-                {t('table.compact')}
-              </button>
-              <button
-                type="button"
-                className={`table-bubble-toggle${table.caption ? ' active' : ''}`}
+                className="table-bubble-caption"
+                data-on={!!table.caption}
+                title={table.caption || ''}
+                onMouseDown={(event) => event.preventDefault()}
                 onClick={askCaption}
               >
-                <span className="table-bubble-dot" data-on={!!table.caption} />
-                {t('table.caption')}
+                <span className="table-bubble-switch-label">{t('table.caption')}</span>
+                <span className="table-bubble-caption-text">
+                  {table.caption || t('table.captionNone')}
+                </span>
               </button>
             </div>
           </div>

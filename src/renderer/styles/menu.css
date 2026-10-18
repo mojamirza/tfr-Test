@@ -266,8 +266,8 @@
   position: absolute;
   top: calc(100% + 8px);
   inset-inline-start: 0;
-  min-width: 210px;
-  padding: 10px;
+  min-width: 260px;
+  padding: 12px;
   background: color-mix(in srgb, var(--menu) 90%, transparent);
   backdrop-filter: var(--pop-blur);
   border: 1px solid var(--outline);
@@ -276,64 +276,155 @@
   z-index: 30;
 }
 
+/* Section captions — Cell / Table. */
 .table-bubble-label {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  margin: 2px 2px 8px;
 }
 
-.table-bubble-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 30px);
-  gap: 2px;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--outline);
-}
-
-.table-bubble-opts {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 2px;
-}
-
-.table-bubble-toggle {
+/* One label + one segmented control per line. */
+.table-bubble-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.table-bubble-hint {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* A segmented control: one pill split into the states it can take, the
+   active one filled with the accent — far easier to scan than glyphs. */
+.table-bubble-seg {
+  display: flex;
+  border: 1px solid var(--outline-strong);
+  border-radius: 7px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.table-bubble-seg-btn {
+  width: 32px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.table-bubble-seg-btn + .table-bubble-seg-btn {
+  border-inline-start: 1px solid var(--outline-strong);
+}
+
+.table-bubble-seg-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.table-bubble-seg-btn.active {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent);
+}
+
+/* The table switches — a real pill with a moving knob, not a dot. */
+.table-bubble-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.table-bubble-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-dim);
   font-size: 12px;
-  padding: 5px 8px;
+  padding: 6px 8px;
   text-align: start;
   cursor: pointer;
   white-space: nowrap;
 }
 
-.table-bubble-toggle:hover {
+.table-bubble-switch:hover {
   background: var(--hover);
   color: var(--text);
 }
 
-.table-bubble-toggle.active {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+.table-bubble-pill {
+  position: relative;
+  width: 26px;
+  height: 15px;
+  border-radius: 8px;
+  background: var(--outline-strong);
+  flex-shrink: 0;
+  transition: background 0.15s ease;
+}
+
+.table-bubble-knob {
+  position: absolute;
+  top: 2px;
+  inset-inline-start: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #fff;
+  transition: inset-inline-start 0.15s ease;
+}
+
+.table-bubble-switch[data-on='true'] .table-bubble-pill {
+  background: var(--accent);
+}
+
+.table-bubble-switch[data-on='true'] .table-bubble-knob {
+  inset-inline-start: 13px;
+}
+
+/* The caption row shows what is set instead of a bare indicator. */
+.table-bubble-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  padding: 6px 8px;
+  text-align: start;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.table-bubble-caption:hover {
+  background: var(--hover);
   color: var(--text);
 }
 
-.table-bubble-dot {
-  width: 9px;
-  height: 9px;
-  border: 1.5px solid var(--text-muted);
-  border-radius: 50%;
-  transition: background 0.15s ease, border-color 0.15s ease;
+.table-bubble-caption-text {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+  color: var(--text-muted);
 }
 
-.table-bubble-toggle.active .table-bubble-dot {
-  background: var(--accent);
-  border-color: var(--accent);
+.table-bubble-caption[data-on='true'] .table-bubble-caption-text {
+  font-style: normal;
+  color: var(--text);
 }
