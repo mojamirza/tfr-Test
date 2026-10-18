@@ -149,11 +149,33 @@ const MARK_TAGS = {
 
 /**
  * Render one inline segment with its marks applied.
- * @param {{ text: string, marks?: string[], href?: string }} segment
+ * @param {{ text: string, marks?: string[], href?: string, button?: object }} segment
  * @param {number} index
  * @returns {React.ReactNode}
  */
 function renderSegment(segment, index) {
+  // `<tg-button>` (Bot API 10.3 RichTextButton) — Telegram renders a tappable,
+  // style-colored button right inside the text; the preview imitates that with
+  // the same chips it uses for button rows, and a `url` button opens its link
+  // like the real app does. Callback, Web App and the other action kinds have
+  // no address to open, so they stay solid chips.
+  if (segment.button) {
+    const style = segment.button.style;
+    const chip = (
+      <span className={`pv-button pv-inline${style ? ` pv-style-${style}` : ''}`}>
+        {segment.text}
+      </span>
+    );
+    if (segment.href) {
+      return (
+        <a key={index} href={segment.href} target="_blank" rel="noreferrer">
+          {chip}
+        </a>
+      );
+    }
+    return <span key={index}>{chip}</span>;
+  }
+
   let node = segment.text;
 
   for (const mark of segment.marks || []) {

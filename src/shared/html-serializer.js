@@ -634,7 +634,7 @@ export const BUTTON_KINDS = Object.freeze({
 export const BUTTON_STYLES = Object.freeze(['primary', 'success', 'link', 'danger']);
 
 /** Schemes a `url` button may point at — inline mentions included. */
-const BUTTON_URL_SCHEMES = Object.freeze(['http:', 'https:', 'tg:']);
+export const BUTTON_URL_SCHEMES = Object.freeze(['http:', 'https:', 'tg:']);
 
 /** The `switch_inline_query_chosen_chat` allow-flags and their attributes. */
 const CHOSEN_CHAT_FLAGS = Object.freeze([
@@ -650,10 +650,14 @@ const CHOSEN_CHAT_FLAGS = Object.freeze([
  * round-tripped through the clipboard keeps its fields. The style lives in
  * `data-style` on editor markup (the DOM `style` attribute is CSS) and in the
  * wire `style` attribute on pasted markup.
+ *
+ * Exported because the preview's inline parser shares this reading — it needs
+ * the same `{ type, style, label, value, … }` record to draw the chip.
+ *
  * @param {Element} el
  * @returns {object}
  */
-function elToRawButton(el) {
+export function elToRawButton(el) {
   const declared = el.getAttribute('type') || '';
   const kind = declared in BUTTON_KINDS ? declared : 'url';
   const valueKey = BUTTON_KINDS[kind];

@@ -186,7 +186,7 @@ live-preview toggle and the right-to-left switch for the message you are writing
 | **Lists** | Ordered *(start, marker style `a A i I`, reversed, explicit item numbers)* · Bulleted · Checklist *(see [Checklists](#checklists))* |
 | **Tables** | Header row, editable cells, drag-to-resize columns · Caption · Striped & compact rows · Cell `align`/`valign` · Cell `colspan`/`rowspan` |
 | **Media** | Photo · Video · Audio · Document · Slideshow *(‹ › carousel)* · Collage · Location — picked **from the device and uploaded with the message** or by URL — each with an optional caption and a per-figure spoiler |
-| **Buttons** | Inline keyboard rows (`<tg-button-row>`) and the 10.3 in-text chip (`<tg-button>` inside a paragraph) — URL, callback data, Mini App, login, switch-inline (incl. chosen-chat filters), copy-text, disabled — with Telegram's four color themes (`primary` blue, `success` green, `danger` red, `link`), picked as swatches and tinted all the way from dialog to preview |
+| **Buttons** | Inline keyboard rows (`<tg-button-row>`) and the 10.3 in-text chip (`<tg-button>` inside a paragraph) — URL, callback data, Mini App, login, switch-inline (incl. chosen-chat filters), copy-text, disabled — with Telegram's four color themes (`primary` blue, `success` green, `danger` red, `link`), picked as swatches and tinted all the way from dialog to preview; in-text chips flow right with the paragraph and `url` buttons open their link |
 | **Structure** | Anchors (`<a name>`) and references (`<tg-reference>`) through the footnote `#name` links |
 
 And while you write:

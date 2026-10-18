@@ -92,6 +92,72 @@ describe('parseInlineSegments', () => {
     expect(segments[1].marks).toEqual([InlineType.MATH]);
   });
 
+  describe('inline buttons (Bot API 10.3 RichTextButton)', () => {
+    it('carries the button record on its own segment', () => {
+      const segments = parseInlineSegments(
+        el(
+          '<p>hi <tg-button type="url" style="danger" url="https://t.me/bot">Open chat</tg-button>!</p>',
+        ),
+      );
+      // The label lies flat inline with the text around it…
+      expect(segments.map((s) => s.text)).toEqual(['hi ', 'Open chat', '!']);
+      const [seg] = segments.slice(1, 2);
+      expect(seg.marks).toEqual([InlineType.BUTTON]);
+      expect(seg.button).toEqual({
+        type: 'url',
+        style: 'danger',
+        label: 'Open chat',
+        value: 'https://t.me/bot',
+        forwardText: '',
+        requestWriteAccess: false,
+        allowUserChats: false,
+        allowBotChats: false,
+        allowGroupChats: false,
+        allowChannelChats: false,
+      });
+    });
+
+    it('gives url-kind buttons an openable href, in the schemes the kind allows', () => {
+      const allowed = parseInlineSegments(
+        el('<p><tg-button type="url" url="tg://user?id=1">me</tg-button></p>'),
+      );
+      expect(allowed[0].href).toBe('tg://user?id=1');
+      const skipped = parseInlineSegments(
+        el('<p><tg-button type="url" url="mailto:a@b.c">nope</tg-button></p>'),
+      );
+      expect(skipped[0].href).toBeUndefined();
+    });
+
+    it('keeps the link look only on callback buttons, like the wire serializer', () => {
+      const callback = parseInlineSegments(
+        el('<p><tg-button type="callback_data" style="link" data="go">go</tg-button></p>'),
+      );
+      expect(callback[0].button.style).toBe('link');
+      const url = parseInlineSegments(
+        el('<p><tg-button type="url" style="link" url="https://t.me/bot">links</tg-button></p>'),
+      );
+      expect(url[0].button.style).toBe('');
+    });
+
+    it('does not merge adjacent buttons or let them nest', () => {
+      const segments = parseInlineSegments(
+        el(
+          '<p><tg-button type="copy_text" text="A">A</tg-button><tg-button type="copy_text" text="B">B</tg-button></p>',
+        ),
+      );
+      expect(segments.map((s) => s.text)).toEqual(['A', 'B']);
+      expect(segments[0].button.value).toBe('A');
+      expect(segments[1].button.value).toBe('B');
+    });
+
+    it('drops buttons with no label', () => {
+      const segments = parseInlineSegments(
+        el('<p><tg-button type="url" url="https://t.me/bot"></tg-button></p>'),
+      );
+      expect(segments).toEqual([]);
+    });
+  });
+
   it('ignores unstyled spans', () => {
     expect(parseInlineSegments(el('<p><span>x</span></p>'))).toEqual([{ text: 'x', marks: [] }]);
   });

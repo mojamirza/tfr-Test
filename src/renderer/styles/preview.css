@@ -572,6 +572,17 @@
   text-underline-offset: 2px;
 }
 
+/* Bot API 10.3 rides buttons inside the running text too — `<tg-button>`
+   (RichTextButton). Same colored looks as the row chips above, but flowing
+   right where they sit in the paragraph; the inline-block box also keeps an
+   enclosing `<a>`'s underline off the colored chips — only the quiet `link`
+   look underlines itself. */
+.pv-button.pv-inline {
+  display: inline-block;
+  vertical-align: baseline;
+  margin: 0 1px;
+}
+
 .pv-thinking {
   border: 1px dashed var(--outline);
   border-radius: 8px;

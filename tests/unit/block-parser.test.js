@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parseBlockElement, parseAllBlocks } from '../../src/shared/block-parser.js';
-import { BlockType } from '../../src/shared/block-types.js';
+import { BlockType, InlineType } from '../../src/shared/block-types.js';
 
 function el(html) {
   const parser = new DOMParser();
@@ -302,6 +302,21 @@ describe('parseBlockElement', () => {
       { text: 'plain ', marks: [] },
       { text: 'bold', marks: ['bold'] },
     ]);
+  });
+
+  it('keeps inline buttons as inline segments so the preview can draw them', () => {
+    const result = parseBlockElement(
+      el(
+        '<p>Pay <tg-button type="url" style="success" url="https://t.me/pay">Pay</tg-button> now</p>',
+      ),
+    );
+    expect(result.text).toBe('Pay Pay now');
+    expect(result.inline[1]).toEqual({
+      text: 'Pay',
+      marks: [InlineType.BUTTON],
+      href: 'https://t.me/pay',
+      button: expect.objectContaining({ type: 'url', style: 'success' }),
+    });
   });
 
   it('omits the inline list when there is no formatting', () => {

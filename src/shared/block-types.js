@@ -55,4 +55,6 @@ export const InlineType = Object.freeze({
   DATE_TIME: 'date_time',
   REFERENCE: 'reference',
   ANCHOR: 'anchor',
+  // Bot API 10.3 RichTextButton — an inline button riding inside the text.
+  BUTTON: 'button',
 });

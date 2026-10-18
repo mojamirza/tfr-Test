@@ -10,7 +10,7 @@
  */
 
 import { InlineType } from './block-types.js';
-import { safeUrl } from './html-serializer.js';
+import { safeUrl, elToRawButton, BUTTON_URL_SCHEMES } from './html-serializer.js';
 
 /**
  * Tag name → inline mark. Kept in sync with the editor extensions.
@@ -31,6 +31,17 @@ const TAG_TO_MARK = {
   SUP: InlineType.SUPERSCRIPT,
   A: InlineType.LINK,
 };
+
+/**
+ * Button kinds whose value is a link the preview may open, with the schemes
+ * each accepts — the same lists the serializer enforces when sending.
+ * @type {Record<string, string[]>}
+ */
+const BUTTON_LINKS = Object.freeze({
+  url: BUTTON_URL_SCHEMES,
+  web_app: ['https:'],
+  login_url: ['https:'],
+});
 
 /**
  * Resolve the mark contributed by a single element, if any.
@@ -97,6 +108,15 @@ export function parseInlineSegments(root) {
         continue;
       }
 
+      // `<tg-button>` (Bot API 10.3 RichTextButton) is one self-contained
+      // entity: its whole record rides on the segment so the preview can draw
+      // the colored chip, instead of the button flattening to plain label
+      // text inside the running paragraph.
+      if (child.tagName === 'TG-BUTTON') {
+        pushButton(child);
+        continue;
+      }
+
       const mark = markForElement(child);
       const nextMarks = mark ? [...marks, mark] : marks;
       // Filtered with the serializer's own list, for two reasons. The preview
@@ -127,6 +147,31 @@ export function parseInlineSegments(root) {
       return;
     }
     const segment = { text, marks: [...marks] };
+    if (href) segment.href = href;
+    segments.push(segment);
+  }
+
+  /**
+   * Emit one segment for an inline `<tg-button>` element. The segment keeps
+   * the `{ text, marks, href? }` shape — the mark says "button" and `button`
+   * carries the `{ type, style, label, value, … }` record the wire format
+   * moves, so the preview draws exactly what Telegram will render. Adjacent
+   * buttons must stay separate segments, which push()'s same-marks merge
+   * would collapse, hence the dedicated emitter.
+   * @param {Element} el
+   */
+  function pushButton(el) {
+    const text = (el.textContent || '').trim();
+    if (!text) return;
+    const button = elToRawButton(el);
+    button.label = text;
+    // The wire serializer permits the `link` look only on callback buttons;
+    // a pasted chip carrying it elsewhere is blanked here too, so the preview
+    // cannot promise a look the message will not carry.
+    if (button.style === 'link' && button.type !== 'callback_data') button.style = '';
+    const segment = { text, marks: [InlineType.BUTTON], button };
+    const schemes = BUTTON_LINKS[button.type];
+    const href = schemes ? safeUrl(button.value, schemes) : '';
     if (href) segment.href = href;
     segments.push(segment);
   }

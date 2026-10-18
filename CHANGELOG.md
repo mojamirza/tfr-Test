@@ -16,6 +16,9 @@ covered by tests:
   the chip and invoking the palette edits or removes it
 - The button serializer enforces the documented 10.3 rule that the `link` style may only travel
   on callback buttons — for any other kind the style is dropped rather than risking an API error
+- The live preview draws in-text buttons at last: a colored `primary`/`success`/`danger` chip or the
+  quiet `link` look rides inside the running paragraph where Telegram will place it, and a `url`
+  button is clickable, opening its link like Telegram's clients do
 - **Custom (Premium) emoji** — `<tg-emoji emoji-id>` with a Unicode fallback
 - **Formatted date-time** — `<tg-time unix format>`, accepted as a unix timestamp or any parseable
   date, with the documented `w`/`D`/`T`-family format string
