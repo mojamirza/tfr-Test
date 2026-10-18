@@ -224,6 +224,7 @@ export function safeUrl(raw, schemes = LINK_SCHEMES) {
  *   html: string,
  *   checklist: Array<{ text: string, done: boolean }>,
  *   inlinedChecklist: boolean,
+ *   thinkingDropped: number,
  *   blocks: number,
  *   media: number,
  *   chars: number,
@@ -242,6 +243,13 @@ export function serializeEditorHtml(editorHtml, options = {}) {
     media: 0,
     checklist: [],
     inlineChecklist: !!options.inlineChecklist,
+    // `<tg-thinking>` is documented for `sendRichMessageDraft` streams only —
+    // a plain `sendRichMessage` carrying it answers the API error
+    // `rich_message_block_unsupported`. The default strips the placeholder
+    // from the payload and reports how many were left out, so the caller can
+    // tell the user; draft mode keeps them.
+    keepThinking: !!options.keepThinking,
+    thinkingDropped: 0,
   };
   const html = root ? childrenToHtml(root, state) : '';
   const text = root ? root.textContent || '' : '';
@@ -250,6 +258,7 @@ export function serializeEditorHtml(editorHtml, options = {}) {
     html: html.trim(),
     checklist: state.checklist,
     inlinedChecklist: state.inlineChecklist && state.checklist.length > 0,
+    thinkingDropped: state.thinkingDropped,
     blocks: state.blocks,
     media: state.media,
     chars: text.length,
@@ -463,9 +472,15 @@ function nodeToHtml(node, state, inlineOnly) {
     if (el.classList.contains('tg-gallery')) return galleryToHtml(el, state);
     if (el.classList.contains('tg-buttons')) return buttonsToHtml(el, state);
     if (el.classList.contains('tg-thinking')) {
+      // Draft-only block: Telegram's HTML parser rejects it outside a
+      // `sendRichMessageDraft` stream with `rich_message_block_unsupported`,
+      // so a plain send drops it instead of risking the error.
+      if (!state.keepThinking) {
+        state.thinkingDropped += 1;
+        return '';
+      }
       state.blocks += 1;
       const text = (el.getAttribute('data-text') || 'Thinking...').trim() || 'Thinking...';
-      // A draft-only block: Telegram shows it while a reply is being written.
       return `<tg-thinking>${escapeText(text)}</tg-thinking>`;
     }
     if (el.classList.contains('tg-map')) {

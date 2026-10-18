@@ -477,13 +477,28 @@ describe('inline `<tg-button>` in text (10.3 RichTextButton)', () => {
 });
 
 describe('thinking placeholder', () => {
-  it('writes the draft-only block and escapes its text', () => {
-    expect(html('<div class="tg-thinking" data-text="Thinking..."></div>')).toBe(
-      '<tg-thinking>Thinking...</tg-thinking>',
+  it('is dropped from plain sends — Telegram rejects the tag outside a draft stream', () => {
+    const out = ser('<p>Working…</p><div class="tg-thinking" data-text="Dry-run"></div>');
+    expect(out.html).toBe('<p>Working…</p>');
+    expect(out.thinkingDropped).toBe(1);
+    expect(out.blocks).toBe(1);
+  });
+
+  it('reports every dropped placeholder', () => {
+    const out = ser(
+      '<div class="tg-thinking" data-text="A"></div><div class="tg-thinking" data-text="B"></div>',
     );
-    expect(html('<div class="tg-thinking" data-text="a &lt; b"></div>')).toBe(
-      '<tg-thinking>a &lt; b</tg-thinking>',
-    );
+    expect(out.html).toBe('');
+    expect(out.thinkingDropped).toBe(2);
+  });
+
+  it('rides `sendRichMessageDraft` when keepThinking is on', () => {
+    const draft = serializeEditorHtml('<div class="tg-thinking" data-text="a &lt; b"></div>', {
+      keepThinking: true,
+    });
+    expect(draft.html).toBe('<tg-thinking>a &lt; b</tg-thinking>');
+    expect(draft.thinkingDropped).toBe(0);
+    expect(draft.blocks).toBe(1);
   });
 });
 

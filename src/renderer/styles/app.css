@@ -817,3 +817,74 @@
   background: var(--hover);
   color: var(--text);
 }
+
+/* ═══════════════════════════ Crash screen ═══════════════════════════ */
+
+/* The renderer's last line of defence. A render-phase exception used to tear
+   the React tree down silently — a black window with nothing working — so the
+   boundary's fallback is an explicit, readable report with a reload. */
+.crash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.crash-card {
+  width: 420px;
+  max-width: 100%;
+  background: var(--menu);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  padding: 20px;
+}
+
+.crash-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--danger);
+  margin-bottom: 8px;
+}
+
+.crash-message {
+  font-size: 13.5px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.crash-stack {
+  margin: 10px 0 14px;
+  max-height: 180px;
+  overflow: auto;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: var(--surface2);
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.crash-reload {
+  width: 100%;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface2));
+  border: 1px solid var(--outline);
+  color: var(--text);
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.crash-reload:hover {
+  background: color-mix(in srgb, var(--accent) 32%, var(--surface2));
+}

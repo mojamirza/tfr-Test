@@ -421,6 +421,10 @@ describe('media helpers', () => {
   it('detects the block type from the file extension', () => {
     expect(mediaKindForUrl('https://a/b.MP4')).toBe('video');
     expect(mediaKindForUrl('https://a/b.mov?x=1')).toBe('video');
+    // `.gif` rides the video tag: Telegram documents an animation as
+    // `<video src="…animation.gif">` — a bare `<img>` would send a still frame.
+    expect(mediaKindForUrl('https://a/anim.gif')).toBe('video');
+    expect(mediaKindForUrl('tfrfile://media/C%3A%2Fanim.gif')).toBe('video');
     expect(mediaKindForUrl('https://a/song.mp3')).toBe('audio');
     expect(mediaKindForUrl('https://a/song.ogg#t=1')).toBe('audio');
     expect(mediaKindForUrl('https://a/pic.jpg')).toBe('photo');

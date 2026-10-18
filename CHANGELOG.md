@@ -75,6 +75,21 @@ covered by tests:
 - The column-resize handle is mirrored to the trailing edge in RTL mode — previously it sat on the
   wrong border and dragged the wrong neighbour
 
+### Fixed — the message broke against the real Telegram API
+- **The inline button dialog never opened at all** — the app's action context was wired with the
+  other dialogs but not `askInlineButton`, so clicking the feature (toolbar ⊞ or the palette) only
+  ever threw and toasted a "network error". Every dialog helper the action registry uses is now
+  wired, and a static renderer-wiring test keeps the two in step from now on
+- **`<tg-thinking>` made Telegram refuse the whole message** with `rich_message_block_unsupported`:
+  the tag is documented for `sendRichMessageDraft` streams only, but plain sends carried it too.
+  It now rides drafts alone; a normal send strips the placeholder and says so in a toast
+- A renderer error used to tear the screen down to a black, dead window. The app now mounts behind
+  an error boundary — a crash shows a readable report with the message, the stack and a Reload
+  button, and logs uncaught errors and promise rejections to the console
+- A `.gif` URL sent a still `<img>` frame; Telegram documents an animation as
+  `<video src="…animation.gif">`, so GIFs now follow the animation path (matching how a locally
+  picked GIF already uploaded)
+
 ### Fixed — cleared content resurrecting itself
 - Clearing the editor purges the autosave copy immediately; previously a pending write could
   survive the clear and resurrect the message on the next launch

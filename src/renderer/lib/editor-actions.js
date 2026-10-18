@@ -529,7 +529,7 @@ export const LINK_ACTION = {
 
 /* ═════════════════════ 6. Media — the photo button ═════════════════════ */
 
-const VIDEO_EXT = /\.(mp4|mov|webm|mkv|m4v|avi)(\?|#|$)/i;
+const VIDEO_EXT = /\.(mp4|mov|webm|mkv|m4v|avi|gif)(\?|#|$)/i;
 const AUDIO_EXT = /\.(mp3|ogg|oga|wav|m4a|flac|opus|aac)(\?|#|$)/i;
 
 /**

@@ -55,7 +55,7 @@ const DRAFT_ID = 1;
 function Shell({ lang, onLangChange }) {
   const { t, dir } = useI18n();
   const toast = useToast();
-  const { askText, askLink, askButtons, confirm } = useDialogs();
+  const { askText, askLink, askButtons, askInlineButton, confirm } = useDialogs();
 
   /**
    * The native device picker behind "insert media". Its title follows the UI
@@ -204,8 +204,16 @@ function Shell({ lang, onLangChange }) {
   }, [notify]);
 
   const ctx = useMemo(
-    () => ({ askText, askLink, askButtons, notify, askFiles: askDeviceFiles }),
-    [askText, askLink, askButtons, notify, askDeviceFiles],
+    () => ({
+      askText,
+      askLink,
+      askButtons,
+      askInlineButton,
+      confirm,
+      notify,
+      askFiles: askDeviceFiles,
+    }),
+    [askText, askLink, askButtons, askInlineButton, confirm, notify, askDeviceFiles],
   );
 
   /* ── send ── */
@@ -249,12 +257,20 @@ function Shell({ lang, onLangChange }) {
       // is used exactly when both of those hold.
       const businessId = settings.businessConnectionId || '';
       const asChecklist = !!businessId && isPrivateChatId(settings.chatId);
-      const message = serializeEditorHtml(html, { inlineChecklist: !asChecklist });
+      const message = serializeEditorHtml(html, {
+        inlineChecklist: !asChecklist,
+        // `<tg-thinking>` streams in draft mode only — plain sends drop it.
+        keepThinking: mode === 'draft',
+      });
       const limits = checkLimits(message);
       if (!limits.ok) {
         notify(`toast.limit.${limits.reason}`, 'error');
         setSending(false);
         return;
+      }
+
+      if (message.thinkingDropped) {
+        notify('toast.thinkingDropped', 'info');
       }
 
       // Only worth a word when the user configured a business connection and
