@@ -24,8 +24,15 @@ export const LIMITS = Object.freeze({
   BLOCKS: 500,
   MEDIA: 50,
   TABLE_COLUMNS: 20,
-  MAP_ZOOM_MIN: 13,
-  MAP_ZOOM_MAX: 20,
+  // InputRichBlockMap: "Map zoom level; 0-24".
+  MAP_ZOOM_MIN: 0,
+  MAP_ZOOM_MAX: 24,
+  // InputRichBlockMap: "width must not exceed 10000 in total",
+  // "height must not exceed 10000", and the ratio "must be at most 20".
+  MAP_SIZE_MAX: 10000,
+  MAP_SIZE_RATIO_MAX: 20,
+  // Rich messages: "Up to 16 levels of nested formatting and blocks."
+  NESTING: 16,
   CHECKLIST_TASKS: 30,
   CHECKLIST_TASK_CHARS: 100,
   // Not a documented limit — inline keyboards in Telegram hold at most this
@@ -431,7 +438,11 @@ function nodeToHtml(node, state, inlineOnly) {
       if (child === summaryEl) continue;
       inner += nodeToHtml(child, state, false);
     }
-    return `<details open><summary>${summary}</summary>${inner}</details>`;
+    // The `open` attribute is what tells Telegram to render the block expanded
+    // by default; without it the block stays collapsed until tapped. The
+    // editor stores the author's choice in `data-open` and it is never forced.
+    const openAttr = el.hasAttribute('data-open') ? ' open' : '';
+    return `<details${openAttr}><summary>${summary}</summary>${inner}</details>`;
   }
 
   if (tag === 'IMG') {
@@ -491,12 +502,59 @@ function nodeToHtml(node, state, inlineOnly) {
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
       if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return '';
       state.blocks += 1;
-      return `<tg-map lat="${lat}" long="${lon}" zoom="${LIMITS.MAP_ZOOM_MIN}"/>`;
+      // Zoom is documented as 0-24. Telegram's own example pins 14, so that is
+      // the default when the author did not choose one; a stray value clamps.
+      const rawZoom = parseInt(el.getAttribute('data-zoom'), 10);
+      const zoom = Number.isFinite(rawZoom)
+        ? Math.min(LIMITS.MAP_ZOOM_MAX, Math.max(LIMITS.MAP_ZOOM_MIN, rawZoom))
+        : 14;
+      let attrs = `lat="${lat}" long="${lon}" zoom="${zoom}"`;
+      // Size is optional and bounded (InputRichBlockMap): 0-10000 each, at most
+      // 10000 in total, and a width/height ratio of at most 20. A size outside
+      // these bounds is dropped whole — the API would reject the message over
+      // an attribute the user cannot see.
+      const sizes = mapSizeAttrs(el);
+      if (sizes) attrs += ` width="${sizes.width}" height="${sizes.height}"`;
+      const caption = figcaptionOf(el);
+      const mapTag = `<tg-map ${attrs}/>`;
+      // The docs' caption example wraps the map in a figure — matched here.
+      return caption ? `<figure>${mapTag}${caption}</figure>` : mapTag;
     }
   }
 
   // Anything else: keep the content, drop the wrapper.
   return childrenToHtml(el, state, inlineOnly);
+}
+
+/**
+ * Whether a width/height pair passes the documented map bounds:
+ * "width 0-10000", "height must not exceed 10000 in total", and a ratio
+ * "at most 20". Exported so the map dialog can enforce the same rule before
+ * anything is inserted.
+ * @param {number} width
+ * @param {number} height
+ * @returns {boolean}
+ */
+export function validMapSize(width, height) {
+  const ok = (n) => Number.isFinite(n) && n > 0 && n <= LIMITS.MAP_SIZE_MAX;
+  if (!ok(width) || !ok(height)) return false;
+  if (width + height > LIMITS.MAP_SIZE_MAX) return false;
+  return Math.max(width, height) / Math.min(width, height) <= LIMITS.MAP_SIZE_RATIO_MAX;
+}
+
+/**
+ * The optional width/height pair of a `<tg-map>`, once it passes the
+ * documented bounds; otherwise null, meaning the map renders default-sized.
+ * @param {Element} el
+ * @returns {{ width: number, height: number }|null}
+ */
+function mapSizeAttrs(el) {
+  const width = parseInt(el.getAttribute('data-width'), 10);
+  const height = parseInt(el.getAttribute('data-height'), 10);
+  const sizeGiven =
+    el.getAttribute('data-width') != null || el.getAttribute('data-height') != null;
+  if (!sizeGiven) return null;
+  return validMapSize(width, height) ? { width, height } : null;
 }
 
 /**
@@ -798,7 +856,9 @@ function galleryToHtml(el, state) {
   const sources = (
     listed.length
       ? listed
-      : Array.from(el.querySelectorAll('img')).map((img) => img.getAttribute('src') || '')
+      : Array.from(el.querySelectorAll('img, video, audio')).map(
+          (item) => item.getAttribute('src') || '',
+        )
   )
     .map((src) => safeUrl(src, MEDIA_SCHEMES))
     .filter(Boolean);
@@ -807,8 +867,49 @@ function galleryToHtml(el, state) {
   const wrapper = el.getAttribute('data-kind') === 'collage' ? 'tg-collage' : 'tg-slideshow';
   state.blocks += 1;
   state.media += sources.length;
-  const images = sources.map((src) => `<img src="${escapeAttr(src)}"/>`).join('');
-  return `<${wrapper}>${images}${figcaptionOf(el)}</${wrapper}>`;
+  // Each entry is a { kind, src } pair so a slideshow can mix photos, videos
+  // and clips exactly like Telegram's own example —
+  // `<tg-slideshow><img/><video/></tg-slideshow>` — and so a `.mp4` uploads
+  // through sendVideo instead of riding an `<img>` as a photo upload.
+  const items = sources
+    .map((src) => ({ kind: mediaKindOf(src), src }))
+    .map(({ kind, src }) => mediaTagFor(kind, src))
+    .join('');
+  return `<${wrapper}>${items}${figcaptionOf(el)}</${wrapper}>`;
+}
+
+/**
+ * Which rich block a media URL belongs to — the serialized twin of the media
+ * picker's `mediaKindForUrl`. A locally picked file keeps its kind too: its
+ * name rides encoded inside the `tfrfile://` URL.
+ *
+ * A `.gif` is an animation and rides the `<video>` tag per the docs; voice
+ * notes (.ogg/.oga) still emit `<audio>` — the upload channel is decided later
+ * by `localUploadType` when the file is rewritten.
+ * @param {string} src
+ * @returns {'photo'|'video'|'audio'|'voice'}
+ */
+export function mediaKindOf(src) {
+  const raw = String(src || '');
+  const pathish = raw.startsWith(LOCAL_MEDIA_SCHEME) ? localUrlToPath(raw) || '' : raw.split(/[?#]/)[0];
+  const ext = ((pathish.match(/\.([A-Za-z0-9]+)$/) || [])[1] || '').toLowerCase();
+  if (ext === 'gif') return 'video';
+  if (['mp4', 'mov', 'webm', 'mkv', 'm4v', 'avi'].includes(ext)) return 'video';
+  if (['ogg', 'oga'].includes(ext)) return 'voice';
+  if (['mp3', 'wav', 'm4a', 'flac', 'opus', 'aac'].includes(ext)) return 'audio';
+  return 'photo';
+}
+
+/**
+ * The wire tag for one media element of a gallery.
+ * @param {string} kind - from {@link mediaKindOf}
+ * @param {string} src
+ * @returns {string}
+ */
+function mediaTagFor(kind, src) {
+  if (kind === 'video') return `<video src="${escapeAttr(src)}"></video>`;
+  if (kind === 'audio' || kind === 'voice') return `<audio src="${escapeAttr(src)}"></audio>`;
+  return `<img src="${escapeAttr(src)}"/>`;
 }
 
 /* ═══════════════════════════ Request bodies ═══════════════════════════ */
@@ -861,15 +962,61 @@ function hoistAttachments(body, richMessage) {
 }
 
 /**
+ * A positive-integer send parameter, or 0 when the value is absent/invalid.
+ * @param {string|number} value
+ * @returns {number}
+ */
+function intParam(value) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
+ * The per-send publish options a body builder may carry, straight out of the
+ * sendRichMessage parameter list: topic, direct-messages topic, reply target,
+ * silent/protect toggles, a message effect, and the business connection. Each
+ * field is written only when the author set it.
+ * @typedef {{ messageThreadId?: string|number, directMessagesTopicId?: string|number,
+ *   replyToMessageId?: string|number, silent?: boolean, protectContent?: boolean,
+ *   messageEffectId?: string, businessConnectionId?: string }} SendParams
+ */
+
+/**
+ * Apply publish options to a method body. Used by sendRichMessage and — as
+ * documented — sendRichMessageDraft's message_thread_id; edit bodies stay
+ * untouched, since editMessageText's parameter list differs.
+ * @param {object} body
+ * @param {SendParams} [send]
+ */
+function applySendParams(body, send = {}) {
+  const threadId = intParam(send.messageThreadId);
+  if (threadId) body.message_thread_id = threadId;
+  const dmTopicId = intParam(send.directMessagesTopicId);
+  if (dmTopicId) body.direct_messages_topic_id = dmTopicId;
+  const replyId = intParam(send.replyToMessageId);
+  if (replyId) body.reply_parameters = { message_id: replyId };
+  if (send.silent) body.disable_notification = true;
+  if (send.protectContent) body.protect_content = true;
+  if (typeof send.messageEffectId === 'string' && send.messageEffectId.trim()) {
+    body.message_effect_id = send.messageEffectId.trim();
+  }
+  if (typeof send.businessConnectionId === 'string' && send.businessConnectionId.trim()) {
+    body.business_connection_id = send.businessConnectionId.trim();
+  }
+  return body;
+}
+
+/**
  * Body for `sendRichMessage`.
  * @param {string} html
  * @param {string} chatId
- * @param {object} [options]
+ * @param {object} [options] - {@link SendParams} rides as `options.sendParams`
  * @returns {object}
  */
 export function buildRichMessageBody(html, chatId, options = {}) {
   const richMessage = buildInputRichMessage(html, options);
-  return hoistAttachments({ chat_id: chatId, rich_message: richMessage }, richMessage);
+  const body = applySendParams({ chat_id: chatId, rich_message: richMessage }, options.sendParams);
+  return hoistAttachments(body, richMessage);
 }
 
 /**
@@ -884,7 +1031,12 @@ export function buildRichMessageBody(html, chatId, options = {}) {
 export function buildDraftBody(html, chatId, draftId, options = {}) {
   const richMessage = buildInputRichMessage(html, options);
   return hoistAttachments(
-    { chat_id: Number(chatId), draft_id: draftId, rich_message: richMessage },
+    applySendParams(
+      { chat_id: Number(chatId), draft_id: draftId, rich_message: richMessage },
+      // Drafts support the topic field only — the rest of the publish sheet is
+      // send-parameter territory, undocumented for drafts.
+      options.sendParams ? { messageThreadId: options.sendParams.messageThreadId } : {},
+    ),
     richMessage,
   );
 }
@@ -953,6 +1105,38 @@ export function checkChecklist(items) {
     }
   }
   return { ok: true };
+}
+
+/**
+ * Enforce Telegram's nesting bound: "Up to 16 levels of nested formatting and
+ * blocks". Contents that pass the char/block limits can still nest too deep and
+ * be rejected at send time with an opaque API error, so the depth is
+ * preflighted here on the serialized message.
+ *
+ * The depth is the longest chain of nested elements in the message body: a
+ * bare `<p>` counts as one level, `<p><b><i>…` as three, a quote inside a list
+ * item inside a details block counts each wrapper.
+ *
+ * @param {string} editorHtml
+ * @param {{ parse?: (html: string) => Document }} [options]
+ * @returns {{ ok: boolean, depth: number, limit: number }}
+ */
+export function checkNestingDepth(editorHtml, options = {}) {
+  const parse =
+    options.parse || ((html) => new DOMParser().parseFromString(html, 'text/html'));
+  const doc = parse(`<div id="tfr-root">${editorHtml || ''}</div>`);
+  const root = doc.getElementById
+    ? doc.getElementById('tfr-root')
+    : doc.body && doc.body.firstChild;
+  let max = 0;
+  if (root) {
+    const walk = (el, depth) => {
+      if (depth > max) max = depth;
+      for (const child of el.children) walk(child, depth + 1);
+    };
+    for (const child of root.children) walk(child, 1);
+  }
+  return { ok: max <= LIMITS.NESTING, depth: max, limit: LIMITS.NESTING };
 }
 
 /**

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="../../src/renderer/styles/theme.css" />
+  <link rel="stylesheet" href="../../src/renderer/styles/app.css" />
+  <link rel="stylesheet" href="../../src/renderer/styles/toolbar.css" />
+  <link rel="stylesheet" href="../../src/renderer/styles/editor.css" />
+  <style>
+    html, body { margin: 0; height: 100%; }
+    body {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      overflow: hidden;
+      -webkit-user-select: none;
+    }
+    /* Force the dark theme for the shot (theme.css may carry nothing while no
+       class is set — defaults already are dark). */
+    .win-dots { display: flex; gap: 10px; }
+    .win-dot { width: 26px; height: 3px; border-radius: 2px; background: var(--outline-strong); }
+    .tb-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+    .inspector pre {
+      font-family: ui-monospace, 'Cascadia Mono', monospace;
+      font-size: 10.5px;
+      line-height: 1.45;
+      color: var(--text-dim);
+      background: var(--surface2);
+      border-radius: 7px;
+      padding: 10px;
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .inspector-note { color: var(--danger); }
+  </style>
+</head>
+<body>
+  <!-- ═══════════════ Title bar ═══════════════ -->
+  <div class="titlebar">
+    <div class="titlebar-lead">
+      <button class="tl-btn active" title="Settings"><span class="tb-icon" style="width:15px;height:15px"><svg viewBox="0 0 24 24" style="width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8"><circle cx="12" cy="12" r="3"/><path d="M4 12h2m12 0h2M12 4v2m0 12v2"/></svg></span><span class="tl-dot on"></span></button>
+      <button class="tl-btn" title="Preview"><span class="tb-icon" style="width:15px;height:15px"><svg viewBox="0 0 24 24" style="width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8"><rect x="3" y="4.5" width="18" height="15" rx="2.5"/><path d="M13 4.5v15"/></svg></span></button>
+      <button class="tl-btn" title="Local drafts"><span class="tb-icon" style="width:15px;height:15px"><svg viewBox="0 0 24 24" style="width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h6M9 16h6"/></svg></span></button>
+      <button class="tl-btn active" title="Article inspector"><span class="tb-icon" style="width:15px;height:15px"><svg viewBox="0 0 24 24" style="width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M15 4v16"/><circle cx="17.8" cy="8.5" r=".9" fill="currentColor" stroke="none"/><circle cx="17.8" cy="11.5" r=".9" fill="currentColor" stroke="none"/><circle cx="17.8" cy="14.5" r=".9" fill="currentColor" stroke="none"/></svg></span></button>
+      <button class="tl-btn" title="RTL"><span class="tb-icon" style="width:15px;height:15px"><svg viewBox="0 0 24 24" style="width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8"><path d="M15 4H9.5a3.5 3.5 0 0 0 0 7H15"/><path d="M15 4v16M18.5 4v16"/><path d="M7 17.5h6M9.5 15l-2.5 2.5L9.5 20"/></svg></span></button>
+    </div>
+    <div class="titlebar-drag">
+      <span style="display:block;max-width:280px;margin:0 auto;font-size:12px;color:var(--text-dim);text-align:center;line-height:var(--titlebar-h)">TelegramFreeRich — Bot connected</span>
+    </div>
+    <div class="titlebar-controls">
+      <div class="win-dots" style="margin-right:14px">
+        <span class="win-dot"></span><span class="win-dot"></span><span class="win-dot"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ Toolbar — four labelled groups ═══════════════ -->
+  <div class="tfr-toolbar">
+    <div class="tb-group">
+      <span class="tb-group-label">Text</span>
+      <div class="tb-group-buttons">
+        <button class="tb-btn" title="Undo"><span class="tb-icon"><svg viewBox="0 0 24 24"><path d="M4 8h10.5a4.5 4.5 0 0 1 0 9H8"/><path d="M7.5 4.5 4 8l3.5 3.5"/></svg></span></button>
+        <button class="tb-btn" title="Redo"><span class="tb-icon"><svg viewBox="0 0 24 24"><path d="M20 8H9.5a4.5 4.5 0 0 0 0 9H16"/><path d="M16.5 4.5 20 8l-3.5 3.5"/></svg></span></button>
+        <button class="tb-btn wide" title="Formatting">Aa</button>
+        <button class="tb-btn" title="Text style"><span class="tb-icon"><svg viewBox="0 0 24 24"><path d="M6 5h12M12 5v14"/></svg></span></button>
+        <button class="tb-btn" title="Insert link"><span class="tb-icon"><svg viewBox="0 0 24 24"><path d="M9.5 14.5 14.5 9.5"/><path d="M7 13l-2.6 2.6a4 4 0 0 0 5.7 5.7L12.5 19"/><path d="M17 11l2.6-2.6a4 4 0 0 0-5.7-5.7L11.5 5"/></svg></span></button>
+      </div>
+    </div>
+    <span class="tb-sep"></span>
+    <div class="tb-group">
+      <span class="tb-group-label">Blocks</span>
+      <div class="tb-group-buttons">
+        <button class="tb-btn" title="Lists"><span class="tb-icon"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4.5" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.1" fill="currentColor" stroke="none"/></svg></span></button>
+        <button class="tb-btn" title="Table"><span class="tb-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 10h17M9.5 10v9.5"/></svg></span></button>
+        <button class="tb-btn" title="Formula"><span class="tb-icon"><svg viewBox="0 0 24 24"><path d="M5 5h8M7 5c0 6 0 9 6 9-6 0-6 3-6 9 0 0-2 0-2-9zM17 6v13M14.5 12h5"/></svg></span></button>
+        <button class="tb-btn" title="Collage"><span class="tb-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7.5" height="10.5" rx="1.5"/><rect x="13" y="3.5" width="7.5" height="7" rx="1.5"/><rect x="3.5" y="16" width="7.5" height="4.5" rx="1.5"/><rect x="13" y="12.5" width="7.5" height="8" rx="1.5"/></svg></span></button>
+      </div>
+    </div>
+    <span class="tb-sep"></span>
+    <div class="tb-group">
+      <span class="tb-group-label">Media</span>
+      <div class="tb-group-buttons">
+        <button class="tb-btn" title="Insert media"><span class="tb-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.7"/><path d="M4.5 17.5 10 12l4 4 3-3.5 2.5 3"/></svg></span></button>
+      </div>
+    </div>
+    <span class="tb-sep"></span>
+    <div class="tb-group">
+      <span class="tb-group-label">Publish</span>
+      <div class="tb-group-buttons">
+        <button class="tb-btn" title="Buttons row"><span class="tb-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="9" width="17" height="6" rx="3"/><path d="M8 12h8"/></svg></span></button>
+        <button class="tb-btn" title="Inline button in text"><span class="tb-icon"><svg viewBox="0 0 24 24"><rect x="2.5" y="9.5" width="19" height="5" rx="2.5"/><path d="M6 12h7"/></svg></span></button>
+        <button class="tb-btn" title="Publish options"><span class="tb-icon"><svg viewBox="0 0 24 24"><path d="M4 11.5 20 4l-5 16-3.5-6.5L4 11.5z"/><path d="M11.5 13.5 20 4"/></svg></span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ Workspace: editor + inspector ═══════════════ -->
+  <main class="workspace with-inspector">
+    <div class="editor-pane" dir="ltr">
+      <div class="tfr-editor ProseMirror">
+        <h2>Release 5.7.0 — the publish layer</h2>
+        <p>
+          This release carries <b>topic and reply targets</b>, <i>protect-contents</i>,
+          <code>message_effect_id</code> and a <mark>marked</mark> note in the
+          <a href="https://core.telegram.org/bots/api">rich-message API</a> — every field the
+          sheet lets you set rides only when it is set.
+          <span class="tg-btn-chip" data-style="primary" style="margin-inline-start:6px">Open release</span>
+        </p>
+        <blockquote><p>“Because bots should not have more rights than humans.”</p><cite>Aporis</cite></blockquote>
+        <details open>
+          <summary>What the inspector shows</summary>
+          <div class="details-content"><p>Outline, live counts, capability notes and the exact request.</p></div>
+        </details>
+        <div class="tg-gallery" data-kind="slideshow">
+          <div class="tg-gallery-stage">
+            <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='230'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%232C5B8A'/%3E%3Cstop offset='1' stop-color='%231B3A57'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='360' height='230' fill='url(%23g)'/%3E%3Ctext x='20' y='205' fill='%23D8E4F0' font-family='Segoe UI' font-size='13'%3Ephoto · map node zoom 14%3C/text%3E%3C/svg%3E" alt="" />
+            <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='360' height='230'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='1' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%232E6E5A'/%3E%3Cstop offset='1' stop-color='%231B4034'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='360' height='230' fill='url(%23g)'/%3E%3Ctext x='20' y='205' fill='%23D8E4F0' font-family='Segoe UI' font-size='13'%3Evideo clip — uploads through sendVideo%3C/text%3E%3C/svg%3E" alt="" style="display:none" />
+          </div>
+          <span class="tg-gallery-nav prev">‹</span>
+          <span class="tg-gallery-nav next">›</span>
+          <span class="tg-gallery-dots"><i class="active"></i><i></i></span>
+        </div>
+        <ul data-type="taskList">
+          <li data-checked="true"><input type="checkbox" checked /><p>Serialize slideshow entries as { kind, src }</p></li>
+          <li data-checked="false"><input type="checkbox" /><p>Preflight the 16-level nesting bound</p></li>
+        </ul>
+        <div class="tg-buttons" data-align="left">
+          <span class="tg-btn-chip" data-style="success">Checklists are free</span>
+          <span class="tg-btn-chip" data-style="danger">Delete draft</span>
+          <span class="tg-btn-chip" data-style="link">Read the docs</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ Article inspector ═══════════════ -->
+    <aside class="inspector">
+      <div class="inspector-head">
+        <span class="inspector-title">Article inspector</span>
+        <button class="inspector-close"><span class="tb-icon" style="width:12px;height:12px"><svg viewBox="0 0 24 24"><path d="M5 5l14 14M19 5 5 19"/></svg></span></button>
+      </div>
+      <div class="inspector-tabs">
+        <button class="inspector-tab">Outline</button>
+        <button class="inspector-tab active">Request</button>
+      </div>
+      <div class="inspector-stats">
+        <span class="inspector-stat">1 342<small>/32 768</small></span>
+        <span class="inspector-stat">9<small>/500</small></span>
+        <span class="inspector-stat">2<small>/50</small></span>
+        <span class="inspector-stat">4<small>/16</small></span>
+      </div>
+      <pre>{
+  "chat_id": "@tfr_demo",
+  "rich_message": {
+    "html": "&lt;h2&gt;Release 5.7.0&lt;/h2&gt;
+      &lt;p&gt;…&lt;b&gt;topic and reply
+      targets&lt;/b&gt;…&lt;mark&gt;marked&lt;/mark&gt;…&lt;/p&gt;",
+    "is_rtl": false
+  },
+  "message_thread_id": 77,
+  "reply_parameters": { "message_id": 1001 },
+  "protect_content": true
+}</pre>
+      <p class="inspector-notes-title">Notes</p>
+      <p class="inspector-notes-empty">No constraint warnings</p>
+    </aside>
+  </main>
+
+  <!-- ═══════════════ Bottom bar ═══════════════ -->
+  <div class="bottombar">
+    <button class="bb-btn" title="Insert palette"><span class="tb-icon"><svg viewBox="0 0 24 24"><path d="M5 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm5 0h9M5 12a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm5 0h9M10 18h9"/><path d="M3 18h1" /></svg></span></button>
+    <div class="bb-spacer">
+      <span class="bb-chars">1 342 / 32 768</span>
+    </div>
+    <button class="bb-btn" title="Clear"><span class="tb-icon"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7.5 7l1 13h7l1-13"/><path d="M10.5 11v5M13.5 11v5"/></svg></span></button>
+    <button class="bb-send" title="Send"><span class="tb-icon" style="width:21px;height:21px;stroke:#fff"><svg viewBox="0 0 24 24"><path d="M4 11.5 20 4l-5 16-3.5-6.5L4 11.5z"/><path d="M11.5 13.5 20 4"/></svg></span></button>
+  </div>
+</body>
+</html>

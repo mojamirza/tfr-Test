@@ -25,15 +25,25 @@ const actionsSource = fs.readFileSync(
 );
 const mainSource = fs.readFileSync(path.join(SRC, 'main.jsx'), 'utf8');
 
-/** Ids the toolbar shows as its own insert buttons. */
+/** Ids the toolbar shows as its own insert buttons (in the labelled groups). */
 const TOOLBAR_INSERT_IDS = [
   'buttons',
   'inlineButton',
-  'customEmoji',
-  'mention',
-  'dateTime',
-  'thinking',
   'collage',
+];
+
+/** Dialog helpers the registry reaches through ctx — every one must exist. */
+const CTX_HELPERS = [
+  'askText',
+  'askLink',
+  'askButtons',
+  'askInlineButton',
+  'askCodeLanguage',
+  'askMap',
+  'askDetails',
+  'confirm',
+  'notify',
+  'askFiles',
 ];
 
 const ctxBlock = (() => {
@@ -47,17 +57,15 @@ describe('App.jsx', () => {
   });
 
   it('wires the action ctx with every dialog helper the actions call', () => {
-    // The registry uses `ctx.askInlineButton`, `ctx.askButtons`, `ctx.askLink`,
-    // `ctx.askText` and `ctx.confirm` — a helper missing here is a feature
-    // that opens no dialog and merely toasts "network error" on click.
+    // The registry reaches ctx.askText/askLink/askButtons/askInlineButton/
+    // askCodeLanguage/askMap/askDetails/confirm — a helper missing here is a
+    // feature that opens no dialog and merely toasts "network error" on click.
+    // Some actions are also exercised with a mock ctx in editor-actions tests,
+    // which cannot catch a missing wire-up — hence these static assertions.
     expect(ctxBlock).not.toBe('');
-    expect(ctxBlock).toContain('askText');
-    expect(ctxBlock).toContain('askLink');
-    expect(ctxBlock).toContain('askButtons');
-    expect(ctxBlock).toContain('askInlineButton');
-    expect(ctxBlock).toContain('confirm');
-    expect(ctxBlock).toContain('notify');
-    expect(ctxBlock).toContain('askFiles');
+    for (const helper of CTX_HELPERS) {
+      expect(ctxBlock, `ctx helper ${helper}`).toContain(helper);
+    }
   });
 });
 
@@ -68,10 +76,17 @@ describe('Toolbar.jsx', () => {
     }
   });
 
-  it("draws the insert buttons from the palette's own action records", () => {
-    expect(toolbarSource).toContain('INSERT_IDS');
+  it('draws the insert buttons from the palette\'s own action records', () => {
+    expect(toolbarSource).toContain('GROUP_INSERTS');
     expect(toolbarSource).toContain('PREMIUM_ACTIONS');
     expect(toolbarSource).toContain('EXTRA_ACTIONS');
+  });
+
+  it('labels the four groups and keeps the publish sheet a click away', () => {
+    for (const key of ['toolbar.groupText', 'toolbar.groupBlocks', 'toolbar.groupMedia', 'toolbar.groupPublish']) {
+      expect(toolbarSource, `group label ${key}`).toContain(key);
+    }
+    expect(toolbarSource).toContain('onPublishOptions');
   });
 });
 

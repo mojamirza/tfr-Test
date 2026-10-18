@@ -36,7 +36,9 @@ const MODES = [
  *   sending: boolean,
  *   onSend: () => void,
  *   onClear: () => void,
+ *   onOpenPublish: () => void,
  * }} props
+ * @returns {JSX.Element}
  */
 export default function BottomBar({
   editor,
@@ -49,6 +51,7 @@ export default function BottomBar({
   sending,
   onSend,
   onClear,
+  onOpenPublish,
 }) {
   const { t } = useI18n();
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -159,6 +162,20 @@ export default function BottomBar({
               )}
             </button>
           ))}
+          <span className="menu-sep" />
+          {/* publish options — the sendRichMessage parameters (topic, reply
+              target, silent/protect, effect, business connection) that have
+              their own sheet. */}
+          <button
+            type="button"
+            className="menu-item"
+            onClick={() => {
+              onOpenPublish();
+              setSendMenuOpen(false);
+            }}
+          >
+            <span className="menu-label">{t('send.publishOptions')}</span>
+          </button>
           <span className="menu-sep" />
           {/* skip_entity_detection — flags Telegram would otherwise find by
               itself (hashtags, phone numbers, /commands) are left as plain

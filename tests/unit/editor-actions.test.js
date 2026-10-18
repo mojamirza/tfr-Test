@@ -67,6 +67,11 @@ function mockCtx(overrides = {}) {
   return {
     askText: vi.fn(async () => 'https://example.com/a.png'),
     askLink: vi.fn(async () => ({ text: 'Telegram', url: 'https://t.me/x' })),
+    // The new dialog helpers default to "cancelled" / "plain text", which is
+    // exactly the path a dialog-free test wants.
+    askCodeLanguage: vi.fn(async () => null),
+    askMap: vi.fn(async () => null),
+    askDetails: vi.fn(async () => null),
     notify: vi.fn(),
     ...overrides,
   };
@@ -214,7 +219,6 @@ describe('the Aa menu', () => {
       paragraph: 'setParagraph',
       blockquote: 'toggleBlockquote',
       pullquote: 'togglePullQuote',
-      codeBlock: 'toggleCodeBlock',
       footer: 'setFooter',
       divider: 'setHorizontalRule',
     };
@@ -223,6 +227,44 @@ describe('the Aa menu', () => {
       TEXT_STYLE_ACTIONS.find((a) => a.id === id).run(editor, mockCtx());
       expect(editor.names(), id).toEqual([command]);
     }
+  });
+});
+
+/* ═══════════════════ 1b. Code-block language picker ═══════════════════ */
+
+describe('the code-block language picker', () => {
+  const codeBlock = () => TEXT_STYLE_ACTIONS.find((a) => a.id === 'codeBlock');
+
+  it('inserts a code block carrying the picked language, lowercased', async () => {
+    const editor = mockEditor();
+    await codeBlock().run(editor, mockCtx({ askCodeLanguage: vi.fn(async () => 'Python') }));
+    expect(editor.calls).toEqual([{ name: 'setCodeBlock', args: [{ language: 'python' }] }]);
+  });
+
+  it('an empty pick means plain text — no language attribute on the wire', async () => {
+    const editor = mockEditor();
+    await codeBlock().run(editor, mockCtx({ askCodeLanguage: vi.fn(async () => '') }));
+    expect(editor.calls).toEqual([{ name: 'setCodeBlock', args: [{ language: null }] }]);
+  });
+
+  it('re-labels the code block under the caret, or clears it', async () => {
+    const editor = mockEditor({ active: ['codeBlock'], attrs: { language: 'python' } });
+    await codeBlock().run(editor, mockCtx({ askCodeLanguage: vi.fn(async () => 'RUST') }));
+    expect(editor.calls).toEqual([
+      { name: 'updateAttributes', args: ['codeBlock', { language: 'rust' }] },
+    ]);
+
+    const same = mockEditor({ active: ['codeBlock'], attrs: { language: 'python' } });
+    await codeBlock().run(same, mockCtx({ askCodeLanguage: vi.fn(async () => '') }));
+    expect(same.calls).toEqual([
+      { name: 'updateAttributes', args: ['codeBlock', { language: null }] },
+    ]);
+  });
+
+  it('does nothing when the picker is dismissed', async () => {
+    const editor = mockEditor();
+    await codeBlock().run(editor, mockCtx({ askCodeLanguage: vi.fn(async () => null) }));
+    expect(editor.calls).toEqual([]);
   });
 });
 
@@ -287,7 +329,6 @@ describe('the list menu', () => {
       orderedList: 'toggleOrderedList',
       bulletList: 'toggleBulletList',
       checklist: 'toggleTaskList',
-      details: 'setDetails',
       listReversed: 'toggleOrderedListReversed',
     };
     for (const action of LIST_ACTIONS) {
@@ -333,6 +374,49 @@ describe('the list menu', () => {
     await action.run(bad, ctx);
     expect(bad.calls).toEqual([]);
     expect(ctx.notify).toHaveBeenCalledWith('toast.invalidListType', 'error');
+  });
+});
+
+/* ═══════════════════ 3b. Collapsible details block ═══════════════════ */
+
+describe('the collapsible details block', () => {
+  const detailsAction = () => LIST_ACTIONS.find((a) => a.id === 'details');
+
+  it('inserts the block carrying the summary and the initially-expanded pick', async () => {
+    const editor = mockEditor();
+    await detailsAction().run(
+      editor,
+      mockCtx({ askDetails: vi.fn(async () => ({ summary: ' Read more ', open: true })) }),
+    );
+    expect(editor.calls).toEqual([{ name: 'setDetails', args: ['Read more', true] }]);
+  });
+
+  it('falls back to the default heading when the summary is empty', async () => {
+    const editor = mockEditor();
+    await detailsAction().run(
+      editor,
+      mockCtx({ askDetails: vi.fn(async () => ({ summary: '  ', open: false })) }),
+    );
+    expect(editor.calls).toEqual([{ name: 'setDetails', args: ['Details', false] }]);
+  });
+
+  it('updates the block the caret sits in', async () => {
+    const editor = mockEditor({ active: ['details'], attrs: { summary: 'More', open: false } });
+    await detailsAction().run(
+      editor,
+      mockCtx({
+        askDetails: vi.fn(async () => ({ summary: 'More', open: true, existing: true })),
+      }),
+    );
+    expect(editor.calls).toEqual([
+      { name: 'updateAttributes', args: ['details', { summary: 'More', open: true }] },
+    ]);
+  });
+
+  it('does nothing when dismissed', async () => {
+    const editor = mockEditor();
+    await detailsAction().run(editor, mockCtx({ askDetails: vi.fn(async () => null) }));
+    expect(editor.calls).toEqual([]);
   });
 });
 
@@ -690,30 +774,82 @@ describe('the media menu', () => {
     ]);
   });
 
-  it('parses a location and rejects malformed coordinates', async () => {
+  it('inserts the map the publish dialog filled in', async () => {
     const location = MEDIA_ACTIONS.find((a) => a.id === 'location');
 
     const good = mockEditor();
-    await location.run(good, mockCtx({ askText: vi.fn(async () => '35.6892, 51.389') }));
+    await location.run(
+      good,
+      mockCtx({
+        askMap: vi.fn(async () => ({
+          latitude: '35.6892',
+          longitude: '51.389',
+          zoom: '14',
+          width: '',
+          height: '',
+          caption: 'Tehran',
+        })),
+      }),
+    );
     expect(good.calls).toEqual([
-      { name: 'setMapBlock', args: [{ latitude: 35.6892, longitude: 51.389 }] },
+      {
+        name: 'setMapBlock',
+        args: [
+          { latitude: 35.6892, longitude: 51.389, zoom: 14, width: null, height: null, caption: 'Tehran' },
+        ],
+      },
+    ]);
+  });
+
+  it('updates the map the caret sits in, or removes it', async () => {
+    const location = MEDIA_ACTIONS.find((a) => a.id === 'location');
+
+    const editor = mockEditor({ active: ['mapBlock'], attrs: { latitude: 1, longitude: 2 } });
+    await location.run(
+      editor,
+      mockCtx({
+        askMap: vi.fn(async () => ({
+          latitude: '3',
+          longitude: '4',
+          zoom: '',
+          width: '',
+          height: '',
+          caption: '',
+          existing: true,
+        })),
+      }),
+    );
+    expect(editor.calls).toEqual([
+      {
+        name: 'updateAttributes',
+        args: ['mapBlock', { latitude: 3, longitude: 4, zoom: null, width: null, height: null, caption: '' }],
+      },
     ]);
 
-    const bad = mockEditor();
-    const ctx = mockCtx({ askText: vi.fn(async () => 'somewhere nice') });
-    await location.run(bad, ctx);
-    expect(bad.calls).toEqual([]);
-    expect(ctx.notify).toHaveBeenCalledWith('toast.invalidCoords', 'error');
+    const removed = mockEditor({ active: ['mapBlock'] });
+    await location.run(removed, mockCtx({ askMap: vi.fn(async () => ({ removed: true })) }));
+    expect(removed.calls).toEqual([{ name: 'deleteSelection', args: [] }]);
   });
 
   it('refuses a point that is not on the globe', async () => {
     const location = MEDIA_ACTIONS.find((a) => a.id === 'location');
-    for (const input of ['999, 0', '0, -181', '-91, 10', '35.6892', '1, 2, 3', '35 degrees, 51']) {
+    const points = [
+      ['999', '0'],
+      ['0', '-181'],
+      ['-91', '10'],
+      ['a lot', '51'],
+    ];
+    for (const [latitude, longitude] of points) {
       const editor = mockEditor();
-      const ctx = mockCtx({ askText: vi.fn(async () => input) });
+      const ctx = mockCtx({
+        askMap: vi.fn(async () => ({ latitude, longitude, zoom: '', width: '', height: '', caption: '' })),
+      });
       await location.run(editor, ctx);
-      expect(editor.calls, input).toEqual([]);
-      expect(ctx.notify, input).toHaveBeenCalledWith('toast.invalidCoords', 'error');
+      expect(editor.calls, `${latitude},${longitude}`).toEqual([]);
+      expect(ctx.notify, `${latitude},${longitude}`).toHaveBeenCalledWith(
+        'toast.invalidCoords',
+        'error',
+      );
     }
   });
 

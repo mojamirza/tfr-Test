@@ -337,8 +337,11 @@ function renderBlock(block, index) {
       );
 
     case BlockType.DETAILS:
+      // The `open` attribute is the author's "Initially expanded" choice; a
+      // block without it arrives collapsed, and the reader can still tap the
+      // summary either way.
       return (
-        <details key={key} open>
+        <details key={key} open={!!block.open}>
           <summary>{block.summary}</summary>
           <p>{block.content}</p>
         </details>

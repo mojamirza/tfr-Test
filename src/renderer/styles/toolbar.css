@@ -24,11 +24,30 @@
   flex-shrink: 0;
 }
 
+/* A labelled area: the caption sits above the row of pills, so the strip
+   reads as Text / Blocks / Media / Publish instead of a stream of glyphs. */
 .tb-group {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.tb-group-label {
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  user-select: none;
+  padding-inline: 4px;
+}
+
+.tb-group-buttons {
   display: flex;
   align-items: center;
   gap: 2px;
-  flex-shrink: 0;
 }
 
 /* The hairline between the history group and the formatting group. */

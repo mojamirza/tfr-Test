@@ -18,7 +18,9 @@ import { EditorContent } from '@tiptap/react';
 import BottomBar from './components/BottomBar.jsx';
 import { DialogProvider, useDialogs } from './components/Dialog.jsx';
 import Drafts from './components/Drafts.jsx';
+import Inspector from './components/Inspector.jsx';
 import Preview from './components/Preview.jsx';
+import PublishSheet from './components/PublishSheet.jsx';
 import Settings from './components/Settings.jsx';
 import TitleBar from './components/TitleBar.jsx';
 import { ToastProvider, useToast } from './components/Toast.jsx';
@@ -38,6 +40,7 @@ import {
 } from '../shared/html-serializer.js';
 import { DEFAULT_LANG, DEFAULT_THEME } from '../shared/constants.js';
 import { insertLink } from './lib/editor-actions.js';
+import { collectSendIssues } from './lib/send-analysis.js';
 
 const THEME_KEY = 'tfr-theme';
 const LANG_KEY = 'tfr-lang';
@@ -55,7 +58,16 @@ const DRAFT_ID = 1;
 function Shell({ lang, onLangChange }) {
   const { t, dir } = useI18n();
   const toast = useToast();
-  const { askText, askLink, askButtons, askInlineButton, confirm } = useDialogs();
+  const {
+    askText,
+    askLink,
+    askButtons,
+    askInlineButton,
+    askCodeLanguage,
+    askMap,
+    askDetails,
+    confirm,
+  } = useDialogs();
 
   /**
    * The native device picker behind "insert media". Its title follows the UI
@@ -87,6 +99,20 @@ function Shell({ lang, onLangChange }) {
   const [sending, setSending] = useState(false);
   const [drafts, setDrafts] = useState([]);
   const [draftsSaving, setDraftsSaving] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  // The publish sheet's send parameters — sendRichMessage's optional fields
+  // the editor body builders write only when set. The business connection
+  // starts as whatever Settings holds, and stays editable here per send.
+  const [publish, setPublish] = useState({
+    messageThreadId: '',
+    directMessagesTopicId: '',
+    replyToMessageId: '',
+    silent: false,
+    protectContent: false,
+    messageEffectId: '',
+    businessConnectionId: '',
+  });
 
   const tRef = useRef(t);
   tRef.current = t;
@@ -192,6 +218,16 @@ function Shell({ lang, onLangChange }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The sheet's business connection follows Settings until touched here.
+  useEffect(() => {
+    if (settings.businessConnectionId) {
+      setPublish((prev) => ({
+        ...prev,
+        businessConnectionId: prev.businessConnectionId || settings.businessConnectionId,
+      }));
+    }
+  }, [settings.businessConnectionId]);
+
   /* ── services handed to the action registry ── */
 
   const notify = useCallback((key, type) => toast(tRef.current(key), type), [toast]);
@@ -209,12 +245,44 @@ function Shell({ lang, onLangChange }) {
       askLink,
       askButtons,
       askInlineButton,
+      askCodeLanguage,
+      askMap,
+      askDetails,
       confirm,
       notify,
       askFiles: askDeviceFiles,
     }),
-    [askText, askLink, askButtons, askInlineButton, confirm, notify, askDeviceFiles],
+    [
+      askText,
+      askLink,
+      askButtons,
+      askInlineButton,
+      askCodeLanguage,
+      askMap,
+      askDetails,
+      confirm,
+      notify,
+      askDeviceFiles,
+    ],
   );
+
+  const patchPublish = useCallback(
+    (patch) => setPublish((prev) => ({ ...prev, ...patch })),
+    [],
+  );
+
+  const resetPublish = useCallback(() => {
+    setPublish({
+      messageThreadId: '',
+      directMessagesTopicId: '',
+      replyToMessageId: '',
+      silent: false,
+      protectContent: false,
+      messageEffectId: '',
+      businessConnectionId: settings.businessConnectionId || '',
+    });
+    notify('toast.settingsSaved', 'success');
+  }, [settings.businessConnectionId, notify]);
 
   /* ── send ── */
 
@@ -273,6 +341,23 @@ function Shell({ lang, onLangChange }) {
         notify('toast.thinkingDropped', 'info');
       }
 
+      // Capability checks, before Telegram can answer with an opaque error:
+      // drafts carry no media, content may not nest deeper than 16 levels,
+      // and some button kinds only work in particular chats. Blocking issues
+      // stop the send; the rest ride one advisory toast — the article
+      // inspector lists them with room to breathe.
+      const issues = collectSendIssues({ html: message.html, chatId: settings.chatId, mode });
+      const blocking = issues.find((issue) => issue.blocking);
+      if (blocking) {
+        notify(blocking.key, 'error');
+        setSending(false);
+        return;
+      }
+      const advisories = issues.filter((issue) => !issue.blocking);
+      if (advisories.length) {
+        toast(advisories.map((issue) => tRef.current(issue.key)).join('  •  '), 'info');
+      }
+
       // Only worth a word when the user configured a business connection and
       // still did not get the interactive form: the chat is the reason.
       if (message.inlinedChecklist && businessId) {
@@ -314,7 +399,16 @@ function Shell({ lang, onLangChange }) {
       }
 
       if (message.html) {
-        const options = { isRtl, skipEntityDetection: skipEntities };
+        // The publish sheet's parameters ride as sendParams; the body builder
+        // writes each documented field only when the author set it.
+        const options = {
+          isRtl,
+          skipEntityDetection: skipEntities,
+          sendParams: {
+            ...publish,
+            businessConnectionId: publish.businessConnectionId || businessId,
+          },
+        };
         let result;
         if (mode === 'draft') {
           result = await window.app.api(
@@ -348,7 +442,7 @@ function Shell({ lang, onLangChange }) {
       notify('toast.networkError', 'error');
     }
     setSending(false);
-  }, [settings, html, mode, isRtl, skipEntities, notify, toast, askText]);
+  }, [settings, html, mode, isRtl, skipEntities, publish, notify, toast, askText]);
 
   /* ── local drafts ── */
 
@@ -490,21 +584,35 @@ function Shell({ lang, onLangChange }) {
         tokenSet={settings.tokenSet}
         previewOpen={previewOpen}
         draftsOpen={draftsOpen}
+        inspectorOpen={inspectorOpen}
         isRtl={isRtl}
         onToggleRtl={toggleRtl}
         onTogglePreview={() => setPreviewOpen((v) => !v)}
+        onToggleInspector={() => setInspectorOpen((v) => !v)}
         onOpenDrafts={openDrafts}
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
-      <Toolbar editor={editor} ctx={ctx} />
+      <Toolbar editor={editor} ctx={ctx} onPublishOptions={() => setPublishOpen(true)} />
 
-      <main className={`workspace${previewOpen ? ' with-preview' : ''}`}>
+      <main
+        className={`workspace${previewOpen ? ' with-preview' : ''}${
+          inspectorOpen ? ' with-inspector' : ''
+        }`}
+      >
         <div className="editor-pane" dir={isRtl ? 'rtl' : 'ltr'}>
           <EditorContent editor={editor} />
           <TableBubble editor={editor} ctx={ctx} />
         </div>
         {previewOpen && <Preview html={html} isRtl={isRtl} onClose={() => setPreviewOpen(false)} />}
+        {inspectorOpen && (
+          <Inspector
+            open
+            onClose={() => setInspectorOpen(false)}
+            editorHtml={html}
+            sendParams={{ chatId: settings.chatId, mode, publish }}
+          />
+        )}
       </main>
 
       <BottomBar
@@ -518,6 +626,7 @@ function Shell({ lang, onLangChange }) {
         sending={sending}
         onSend={handleSend}
         onClear={handleClear}
+        onOpenPublish={() => setPublishOpen(true)}
       />
 
       <Drafts
@@ -528,6 +637,13 @@ function Shell({ lang, onLangChange }) {
         onSave={saveDraft}
         onLoad={loadDraft}
         onDelete={deleteDraft}
+      />
+      <PublishSheet
+        open={publishOpen}
+        onClose={() => setPublishOpen(false)}
+        publish={publish}
+        onChange={patchPublish}
+        onReset={resetPublish}
       />
       <Settings
         open={settingsOpen}

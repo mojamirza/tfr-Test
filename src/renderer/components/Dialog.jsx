@@ -7,13 +7,17 @@
  *   askLink({ text, url })                     → Promise<{text, url}|null>
  *   askButtons({ align, buttons })             → Promise<{align, buttons}|null>
  *   askInlineButton({ …button, existing })     → Promise<button|null|{removed:true}>
+ *   askCodeLanguage({ value })                 → Promise<string|null>
+ *   askMap({ …map fields, existing })          → Promise<map|null|{removed:true}>
+ *   askDetails({ summary, open, existing })    → Promise<{summary, open}|null>
  *   confirm({ titleKey, bodyKey, confirmKey }) → Promise<boolean>
  *
  * @module components/Dialog
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { BUTTON_KINDS, BUTTON_STYLES } from '../../shared/html-serializer.js';
+import { BUTTON_KINDS, BUTTON_STYLES, validMapSize } from '../../shared/html-serializer.js';
+import { parseCoords } from '../lib/editor-actions.js';
 import { useI18n } from '../i18n/index.js';
 
 const DialogContext = createContext(null);
@@ -24,6 +28,10 @@ const DialogContext = createContext(null);
  *   askText: (opts?: object) => Promise<string|null>,
  *   askLink: (opts?: object) => Promise<{text: string, url: string}|null>,
  *   askButtons: (opts?: object) => Promise<{align: string, buttons: object[]}|null>,
+ *   askInlineButton: (opts?: object) => Promise<object|null>,
+ *   askCodeLanguage: (opts?: object) => Promise<string|null>,
+ *   askMap: (opts?: object) => Promise<object|null>,
+ *   askDetails: (opts?: object) => Promise<object|null>,
  *   confirm: (opts?: object) => Promise<boolean>,
  * }}
  */
@@ -58,6 +66,39 @@ const KIND_VALUE_KEYS = {
   switch_inline_query_chosen_chat: 'premium.btnValueQuery',
   copy_text: 'premium.btnValueText',
   disabled: '',
+};
+
+/**
+ * Languages the code-block picker offers, lowercase and identifier-safe —
+ * exactly what `<pre><code class="language-…">` carries. The picker is
+ * searchable and also accepts a value typed over the list, for languages
+ * Telegram knows that are not common enough to list.
+ * @type {Array<{ id: string, label: string }>}
+ */
+const CODE_LANGUAGES = [
+  'bash', 'c', 'c++', 'c#', 'css', 'dart', 'diff', 'dockerfile', 'elixir',
+  'erlang', 'f#', 'go', 'graphql', 'haskell', 'html', 'java', 'javascript',
+  'json', 'kotlin', 'latex', 'lua', 'makefile', 'markdown', 'matlab',
+  'objective-c', 'perl', 'php', 'powershell', 'protobuf', 'python', 'r',
+  'ruby', 'rust', 'scala', 'shell', 'sql', 'swift', 'toml', 'typescript',
+  'vb', 'xml', 'yaml',
+].map((id) => ({ id, label: id }));
+
+/** Search the picker: prefix and substring, case-insensitive. */
+function filterLanguages(query) {
+  const q = (query || '').trim().toLowerCase();
+  if (!q) return CODE_LANGUAGES;
+  return CODE_LANGUAGES.filter((lang) => lang.id.toLowerCase().includes(q));
+}
+
+/** Titles for the fixed dialog kinds. */
+const TITLE_KEYS = {
+  link: 'link.create',
+  buttons: 'premium.buttons',
+  inlineBtn: 'premium.inlineButton',
+  code: 'dialog.codeTitle',
+  map: 'dialog.mapTitle',
+  details: 'dialog.detailsTitle',
 };
 
 /**
@@ -184,6 +225,9 @@ export function DialogProvider({ children }) {
   const [btnAlign, setBtnAlign] = useState('');
   const [btnRows, setBtnRows] = useState([]);
   const [btnSingle, setBtnSingle] = useState(null);
+  const [codePick, setCodePick] = useState(null);
+  const [mapFields, setMapFields] = useState(null);
+  const [detailsFields, setDetailsFields] = useState(null);
   const firstFieldRef = useRef(null);
 
   const askText = useCallback(
@@ -237,6 +281,50 @@ export function DialogProvider({ children }) {
     [],
   );
 
+  const askCodeLanguage = useCallback(
+    (options = {}) =>
+      new Promise((resolve) => {
+        // One searchable list. The query doubles as the value, so a language
+        // Telegram knows but the list does not can simply be typed.
+        setCodePick({ query: options.value || '' });
+        setDialog({ kind: 'code', resolve });
+      }),
+    [],
+  );
+
+  const askMap = useCallback(
+    (options = {}) =>
+      new Promise((resolve) => {
+        // Coordinates, zoom, optional rendered size and an optional caption —
+        // the full InputRichBlockMap field set.
+        setMapFields({
+          latitude: options.latitude == null ? '' : String(options.latitude),
+          longitude: options.longitude == null ? '' : String(options.longitude),
+          zoom: options.zoom == null ? '' : String(options.zoom),
+          width: options.width == null ? '' : String(options.width),
+          height: options.height == null ? '' : String(options.height),
+          caption: options.caption || '',
+          existing: !!options.existing,
+          error: '',
+        });
+        setDialog({ kind: 'map', resolve });
+      }),
+    [],
+  );
+
+  const askDetails = useCallback(
+    (options = {}) =>
+      new Promise((resolve) => {
+        setDetailsFields({
+          summary: options.summary || '',
+          open: !!options.open,
+          existing: !!options.existing,
+        });
+        setDialog({ kind: 'details', resolve });
+      }),
+    [],
+  );
+
   const finish = useCallback(
     (result) => {
       if (dialog) dialog.resolve(result);
@@ -246,6 +334,9 @@ export function DialogProvider({ children }) {
       setLinkUrl('');
       setBtnRows([]);
       setBtnSingle(null);
+      setCodePick(null);
+      setMapFields(null);
+      setDetailsFields(null);
     },
     [dialog],
   );
@@ -291,6 +382,43 @@ export function DialogProvider({ children }) {
         allowGroupChats: !!btnSingle.allowGroupChats,
         allowChannelChats: !!btnSingle.allowChannelChats,
       });
+    } else if (dialog.kind === 'code') {
+      // The query doubles as the value: pick from the list, or type a custom
+      // identifier Telegram accepts. Lowercase — `language-Python` and
+      // `language-python` are the same language, and the lowercase form is
+      // what the examples use. Empty resolves to plain text.
+      finish(codePick.query.trim().toLowerCase());
+    } else if (dialog.kind === 'map') {
+      const keys = [];
+      if (!parseCoords(`${mapFields.latitude}, ${mapFields.longitude}`)) {
+        keys.push('toast.invalidCoords');
+      }
+      const zoom = mapFields.zoom.trim();
+      if (zoom !== '' && !/^\d+$/.test(zoom)) keys.push('dialog.mapInvalidZoom');
+      const width = parseInt(mapFields.width, 10);
+      const height = parseInt(mapFields.height, 10);
+      const sizeGiven = mapFields.width.trim() !== '' || mapFields.height.trim() !== '';
+      if (sizeGiven && !(Number.isFinite(width) && Number.isFinite(height))) {
+        keys.push('dialog.mapInvalidSize');
+      } else if (sizeGiven && !validMapSize(width, height)) {
+        keys.push('dialog.mapInvalidSize');
+      }
+      if (keys.length) {
+        // The dialog stays open with the reason inline — a point that fails
+        // Telegram's bounds must never close the panel as valid.
+        setMapFields((fields) => ({ ...fields, error: keys[0] }));
+        return;
+      }
+      finish({
+        latitude: mapFields.latitude,
+        longitude: mapFields.longitude,
+        zoom: mapFields.zoom,
+        width: mapFields.width,
+        height: mapFields.height,
+        caption: mapFields.caption,
+      });
+    } else if (dialog.kind === 'details') {
+      finish({ summary: detailsFields.summary, open: detailsFields.open });
     } else {
       // An empty field resolves to '', not null. `null` means "cancelled", and
       // the two are not the same answer: callers that edit an existing value —
@@ -320,7 +448,9 @@ export function DialogProvider({ children }) {
   }, [dialog, finish, cancelled]);
 
   return (
-    <DialogContext.Provider value={{ askText, askLink, askButtons, askInlineButton, confirm }}>
+    <DialogContext.Provider
+      value={{ askText, askLink, askButtons, askInlineButton, askCodeLanguage, askMap, askDetails, confirm }}
+    >
       {children}
 
       {dialog && (
@@ -333,13 +463,7 @@ export function DialogProvider({ children }) {
           <div className={`dialog${dialog.kind === 'confirm' ? ' dialog-confirm' : ''}`}>
             <div className="dialog-title">
               {t(
-                dialog.kind === 'link'
-                  ? 'link.create'
-                  : dialog.kind === 'buttons'
-                    ? 'premium.buttons'
-                    : dialog.kind === 'inlineBtn'
-                      ? 'premium.inlineButton'
-                      : dialog.options.titleKey || 'dialog.ok',
+                TITLE_KEYS[dialog.kind] || dialog.options.titleKey || 'dialog.ok',
               )}
             </div>
 
@@ -485,6 +609,153 @@ export function DialogProvider({ children }) {
                     {t('premium.btnRemove')}
                   </button>
                 )}
+              </div>
+            )}
+
+            {dialog.kind === 'code' && codePick && (
+              <div className="dialog-buttons">
+                {/* The search is also the value: picking fills it, and
+                    pressing Enter sends whatever it holds — so a language
+                    the list omits can still be typed and accepted. */}
+                <input
+                  ref={firstFieldRef}
+                  className="dialog-input"
+                  type="text"
+                  value={codePick.query}
+                  placeholder={t('dialog.codeSearch')}
+                  onChange={(event) =>
+                    setCodePick((state) => ({ ...state, query: event.target.value }))
+                  }
+                  onKeyDown={(event) => event.key === 'Enter' && accept()}
+                />
+                <div className="dialog-list">
+                  <button
+                    type="button"
+                    className="dialog-list-item"
+                    onClick={() => finish('')}
+                  >
+                    {t('dialog.codePlain')}
+                  </button>
+                  {filterLanguages(codePick.query).map((lang) => (
+                    <button
+                      type="button"
+                      className="dialog-list-item"
+                      key={lang.id}
+                      onClick={() => finish(lang.id)}
+                    >
+                      <code>{lang.id}</code>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {dialog.kind === 'map' && mapFields && (
+              <div className="dialog-fields">
+                <label htmlFor="map-coords">{t('dialog.mapCoords')}</label>
+                <input
+                  ref={firstFieldRef}
+                  id="map-coords"
+                  className="dialog-input"
+                  type="text"
+                  value={`${mapFields.latitude}, ${mapFields.longitude}`}
+                  placeholder={t('dialog.mapCoordsPlaceholder')}
+                  onChange={(event) => {
+                    const [lat = '', lon = ''] = event.target.value.split(',');
+                    setMapFields((fields) => ({
+                      ...fields,
+                      latitude: lat.trim(),
+                      longitude: lon.trim(),
+                      error: '',
+                    }));
+                  }}
+                  onKeyDown={(event) => event.key === 'Enter' && accept()}
+                />
+                <div className="btn-row-grid">
+                  <input
+                    className="dialog-input"
+                    type="text"
+                    inputMode="numeric"
+                    aria-label={t('dialog.mapZoom')}
+                    placeholder={t('dialog.mapZoom')}
+                    value={mapFields.zoom}
+                    onChange={(event) =>
+                      setMapFields((fields) => ({ ...fields, zoom: event.target.value, error: '' }))
+                    }
+                  />
+                  <input
+                    className="dialog-input"
+                    type="text"
+                    inputMode="numeric"
+                    aria-label={t('dialog.mapSize')}
+                    placeholder={t('dialog.mapWidth')}
+                    value={mapFields.width}
+                    onChange={(event) =>
+                      setMapFields((fields) => ({ ...fields, width: event.target.value, error: '' }))
+                    }
+                  />
+                  <input
+                    className="dialog-input"
+                    type="text"
+                    inputMode="numeric"
+                    aria-label={t('dialog.mapSize')}
+                    placeholder={t('dialog.mapHeight')}
+                    value={mapFields.height}
+                    onChange={(event) =>
+                      setMapFields((fields) => ({ ...fields, height: event.target.value, error: '' }))
+                    }
+                  />
+                </div>
+                <p className="dialog-hint">{t('dialog.mapSizeHint')}</p>
+                <label htmlFor="map-caption">{t('dialog.mapCaption')}</label>
+                <input
+                  id="map-caption"
+                  className="dialog-input"
+                  type="text"
+                  value={mapFields.caption}
+                  placeholder={t('dialog.captionPlaceholder')}
+                  onChange={(event) => setMapFields((fields) => ({ ...fields, caption: event.target.value }))}
+                  onKeyDown={(event) => event.key === 'Enter' && accept()}
+                />
+                {mapFields.error && <p className="dialog-hint error">{t(mapFields.error)}</p>}
+                {mapFields.existing && (
+                  <button
+                    type="button"
+                    className="dialog-btn block danger"
+                    onClick={() => finish({ removed: true })}
+                  >
+                    {t('premium.btnRemove')}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {dialog.kind === 'details' && detailsFields && (
+              <div className="dialog-fields">
+                <label htmlFor="details-summary">{t('dialog.detailsSummary')}</label>
+                <input
+                  ref={firstFieldRef}
+                  id="details-summary"
+                  className="dialog-input"
+                  type="text"
+                  value={detailsFields.summary}
+                  placeholder={t('dialog.detailsSummaryPlaceholder')}
+                  onChange={(event) =>
+                    setDetailsFields((fields) => ({ ...fields, summary: event.target.value }))
+                  }
+                  onKeyDown={(event) => event.key === 'Enter' && accept()}
+                />
+                <label className="btn-row-check">
+                  <input
+                    type="checkbox"
+                    checked={detailsFields.open}
+                    onChange={(event) =>
+                      setDetailsFields((fields) => ({ ...fields, open: event.target.checked }))
+                    }
+                  />
+                  {t('dialog.detailsOpen')}
+                </label>
+                <p className="dialog-hint">{t('dialog.detailsHint')}</p>
               </div>
             )}
 

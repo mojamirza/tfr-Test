@@ -1,5 +1,63 @@
 # Changelog
 
+## [5.7.0] - 2026-10-18
+
+### Fixed — six spec-level gaps, each checked against the live Bot API docs
+- **Drafts with media are now blocked with a reason** — Telegram's `sendRichMessageDraft` page is
+  explicit: *"Direct upload of new files and explicit upload of files by a URL isn't supported."*
+  Any media element in the document stops the draft send with a readable explanation instead of
+  an opaque `Bad Request`
+- **Mixed-media slideshows and collages really mix** — the serializer emitted every gallery entry
+  as `<img>`, so a second video was uploaded as a photo and Telegram's own documented example
+  (`<tg-slideshow><img/><video/></tg-slideshow>`) was rejected. Gallery entries are now
+  `{ kind, src }` pairs: `<img>`, `<video>` and `<audio>` each serialize per kind, a locally
+  picked `.mp4` uploads through its video channel and the same kind inference powers the preview
+- **Collapsible blocks can start collapsed** — the serializer and preview forced `open` on every
+  `<details>`, so an author could not ship a collapsed-by-default block. A new **Initially
+  expanded** toggle in the details dialog writes the choice; the wire carries `open` only when
+  the author asked, and the preview honours it (while the editor stays expanded to edit)
+- **The 16-level nesting limit is enforced before sending** — Telegram documents "up to 16 levels
+  of nested formatting and blocks"; content that passed the char/block/media checks could still
+  nest too deep and die at the API. A DOM-tree preflight (`checkNestingDepth`) stops the send
+  with an explanation, and the inspector shows the live depth
+- **Code blocks can finally pick their language** — the serializer understood
+  `<code class="language-…">` but no UI could produce it. A searchable language picker (42 common
+  languages, plain text first, custom values typeable) labels the block; an empty pick clears the
+  label, and re-picking re-labels the block under the caret
+- **Maps are no longer zoom-13-only** — `InputRichBlockMap` documents zoom 0-24 (the old code
+  hard-capped 13/20 and pinned 13), plus optional width/height ("must not exceed 10000 in total…,
+  ratio at most 20") and a caption. The map dialog takes coordinates, zoom, size and caption with
+  the bounds checked at authoring time; the serializer clamps zoom, drops an out-of-bounds size
+  pair whole, and wraps a captioned map in `<figure>` like the docs example
+
+### Added — the publish layer and the article inspector
+- **Publish options sheet** — the sendRichMessage parameters the editor never exposed: forum
+  **topic ID** (`message_thread_id`), **direct-messages topic** (`direct_messages_topic_id`),
+  **reply target** (`reply_parameters`), **send silently**, **protect contents**, **message
+  effect** and **business connection**. Fields ride the request only when set; drafts carry the
+  documented topic field only; edit bodies stay untouched
+- **Article inspector** — a right-side panel: the block **outline**, live **counts** (characters,
+  blocks, media and nesting depth against the documented bounds), the **capability notes** a send
+  would raise, and a read-only **request preview** — the exact body (Rich HTML and `sendParams`)
+  the app is about to hand to Telegram
+- **Capability warnings before sending** — one combined toast for what Telegram would reject or
+  misread: Web App buttons in a non-private chat, Login URLs that still need a @BotFather
+  whitelist, inline-query buttons and their chat scoping, on top of the draft-media and nesting
+  guards (blocking) — all collected in one place (`send-analysis.js`) shared by the inspector
+
+### Changed — a toolbar you can read
+- The icon-dense strip is now four labelled groups — **Text** (history, formatting, text style,
+  link), **Blocks** (lists, table, formula, collage), **Media**, **Publish** (buttons row, inline
+  chip, publish options) — with the group caption above each row; @mention, custom emoji,
+  formatted time and the thinking placeholder moved back into the searchable palette
+- The publish sheet opens from the send menu as well as the toolbar
+
+### Updated
+- The README screenshot still said "Bot API 10.1" and showed a `{ blocks }` JSON dump — it now
+  shows the labelled toolbar, the inspector with its Rich HTML/request preview, and 10.3 badges
+- Both READMEs document the new window layout, publish sheet, inspector, mixed slideshows, code
+  languages, map fields and the send-time guards; tests badge counts the current 430
+
 ## [5.6.0] - 2026-10-17
 
 ### Added — the Premium article features, driven from the Bot API

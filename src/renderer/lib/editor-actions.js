@@ -14,7 +14,8 @@
  *   hint     optional shortcut string shown right-aligned in menus
  *
  * `ctx` is supplied by App.jsx and provides UI services the pure registry must
- * not own: { askText, askLink, notify }.
+ * not own: { askText, askLink, askButtons, askInlineButton, askCodeLanguage,
+ * askMap, askDetails, askFiles, confirm, notify }.
  *
  * @module lib/editor-actions
  */
@@ -158,7 +159,22 @@ export const TEXT_STYLE_ACTIONS = [
     id: 'codeBlock',
     i18nKey: 'block.codeBlock',
     icon: CodeBlockIcon,
-    run: (editor) => chain(editor).toggleCodeBlock().run(),
+    // The language picker doubles as plain-text: an empty pick clears the
+    // `language-…` label, which is what `<pre>` without a language sends.
+    run: async (editor, ctx) => {
+      const active = editor.isActive('codeBlock');
+      const current = active ? (editor.getAttributes('codeBlock') || {}).language || '' : '';
+      const language = await ctx.askCodeLanguage({ value: current });
+      if (language === null) return;
+      // Lowercase — `language-Python` and `language-python` are one language,
+      // and the lowercase form is what the docs' examples use.
+      const lang = language.trim().toLowerCase();
+      if (active) {
+        chain(editor).updateAttributes('codeBlock', { language: lang || null }).run();
+      } else {
+        chain(editor).setCodeBlock({ language: lang || null }).run();
+      }
+    },
     isActive: (editor) => editor.isActive('codeBlock'),
   },
   {
@@ -271,7 +287,29 @@ export const LIST_ACTIONS = [
     id: 'details',
     i18nKey: 'block.details',
     icon: DetailsIcon,
-    run: (editor) => chain(editor).setDetails().run(),
+    run: async (editor, ctx) => {
+      const active = editor.isActive('details');
+      const current = active ? editor.getAttributes('details') || {} : {};
+      const result = await ctx.askDetails({
+        summary: current.summary || '',
+        open: !!current.open,
+        existing: active,
+      });
+      if (!result) return;
+      if (result.removed) {
+        if (active) chain(editor).deleteSelection().run();
+        return;
+      }
+      const attrs = {
+        summary: (result.summary || '').trim() || 'Details',
+        open: !!result.open,
+      };
+      if (active) {
+        chain(editor).updateAttributes('details', attrs).run();
+      } else {
+        chain(editor).setDetails(attrs.summary, attrs.open).run();
+      }
+    },
     isActive: (editor) => editor.isActive('details'),
   },
   {
@@ -719,17 +757,43 @@ export const MEDIA_ACTIONS = [
     i18nKey: 'media.location',
     icon: MapIcon,
     run: async (editor, ctx) => {
-      const raw = await ctx.askText({
-        titleKey: 'media.locationPrompt',
-        placeholder: '35.6892, 51.3890',
+      const active = editor.isActive('mapBlock');
+      const current = active ? editor.getAttributes('mapBlock') || {} : {};
+      const result = await ctx.askMap({
+        latitude: current.latitude ?? '',
+        longitude: current.longitude ?? '',
+        zoom: current.zoom ?? '',
+        width: current.width ?? '',
+        height: current.height ?? '',
+        caption: current.caption || '',
+        existing: active,
       });
-      if (!raw) return;
-      const coords = parseCoords(raw);
+      if (!result) return;
+      if (result.removed) {
+        if (active) chain(editor).deleteSelection().run();
+        return;
+      }
+      // The map dialog validates before resolving, but the action re-checks:
+      // a point off the globe must never land as `📍 NaN, NaN` in the editor
+      // even if a dialog variant ever skipped validation.
+      const coords = parseCoords(`${result.latitude}, ${result.longitude}`);
       if (!coords) {
         ctx.notify('toast.invalidCoords', 'error');
         return;
       }
-      chain(editor).setMapBlock(coords).run();
+      const attrs = {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        zoom: result.zoom === '' || result.zoom == null ? null : Number(result.zoom),
+        width: result.width === '' || result.width == null ? null : Number(result.width),
+        height: result.height === '' || result.height == null ? null : Number(result.height),
+        caption: (result.caption || '').trim(),
+      };
+      if (active) {
+        chain(editor).updateAttributes('mapBlock', attrs).run();
+      } else {
+        chain(editor).setMapBlock(attrs).run();
+      }
     },
   },
   {

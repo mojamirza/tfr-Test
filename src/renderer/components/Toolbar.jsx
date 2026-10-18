@@ -1,18 +1,18 @@
 /**
- * Toolbar — the rounded strip above the editor:
+ * Toolbar — the rounded strip above the editor, four labelled groups:
  *
- *   ( ↶ )( ↷ ) │ ( Aa )( B )( list )( table )( link )( media )( Σ )
- *                 │ ( buttons )( inline )( emoji )( @ )( time )( thinking )( collage )
+ *   Text      ( ↶ )( ↷ ) | ( Aa )( B )( 🔗 )
+ *   Blocks    ( list )( table )( Σ )( collage )
+ *   Media     ( 🖼 )
+ *   Publish   ( ⊞ )( ⊗ inline )( ➤ publish options )
  *
- * History sits in its own group; the formatting buttons follow; the insert
- * buttons bring the former palette-only features up here so they are visible
- * instead of hidden behind the wand. The groups wrap onto further rows on a
- * narrow window — no button is ever scrolled out of reach.
+ * Four captions instead of a wall of icons: writing lives in Text, structure
+ * in Blocks, files and locations in Media, and the send-time interactive
+ * layer (button rows, inline chips, the publish sheet) in Publish. The
+ * long-tail inserts — @mention, custom emoji, date-time, thinking — stay in
+ * the wand's palette, which the composer keeps one click away.
  *
- * Aa, B, list and media open a vertical menu; the rest act straight away
- * (insert a table, open the "Create link" panel, ask a formula, join text…).
- * The wand's palette keeps everything — searchable — for the long tail
- * (anchors, references, URL media and so on).
+ * Aa, B, list and media open a vertical menu; the rest act straight away.
  *
  * @module components/Toolbar
  */
@@ -27,6 +27,7 @@ import {
   ImageIcon,
   LinkIcon,
   RedoIcon,
+  SendIcon,
   TableIcon,
   TextStyleIcon,
   UndoIcon,
@@ -35,9 +36,9 @@ import {
   FORMAT_ACTIONS,
   LIST_ACTIONS,
   MEDIA_ACTIONS,
+  PREMIUM_ACTIONS,
   TEXT_STYLE_ACTIONS,
   EXTRA_ACTIONS,
-  PREMIUM_ACTIONS,
   insertFormula,
   insertLink,
   insertTable,
@@ -45,20 +46,15 @@ import {
 import { useI18n } from '../i18n/index.js';
 
 /**
- * Palette features that get a visible toolbar button of their own, in order.
- * They are drawn from the palette's own action records, so the toolbar and
- * the wand share one code path — label, icon, active state and run are all
- * the same registry entry.
+ * Palette features that get a visible toolbar button, by group. They are
+ * drawn from the palette's own action records, so the toolbar and the wand
+ * share one code path — label, icon, active state and run are all the same
+ * registry entry.
  */
-const INSERT_IDS = [
-  'buttons',
-  'inlineButton',
-  'customEmoji',
-  'mention',
-  'dateTime',
-  'thinking',
-  'collage',
-];
+const GROUP_INSERTS = {
+  blocks: ['collage'],
+  publish: ['buttons', 'inlineButton'],
+};
 
 /**
  * A single outlined toolbar pill.
@@ -97,9 +93,23 @@ function TbButton({
 }
 
 /**
- * @param {{ editor: object|null, ctx: object }} props
+ * One labelled cluster of buttons — the caption sits above the row so the
+ * groups read as areas, not as a stream of glyphs.
+ * @param {{ label: string, children: React.ReactNode }} props
  */
-export default function Toolbar({ editor, ctx }) {
+function TbGroup({ label, children }) {
+  return (
+    <div className="tb-group">
+      <span className="tb-group-label">{label}</span>
+      <div className="tb-group-buttons">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * @param {{ editor: object|null, ctx: object, onPublishOptions: () => void }} props
+ */
+export default function Toolbar({ editor, ctx, onPublishOptions }) {
   const { t } = useI18n();
   const [menu, setMenu] = useState(null);
   const formattingRef = useRef(null);
@@ -139,18 +149,42 @@ export default function Toolbar({ editor, ctx }) {
     { id: 'media', actions: MEDIA_ACTIONS, anchor: mediaRef, align: 'center' },
   ];
 
-  /** The palette features that get a visible button here, in INSERT_IDS order. */
+  /** The palette features with a visible button, resolved once. */
   const inserts = useMemo(() => {
     const all = [...PREMIUM_ACTIONS, ...EXTRA_ACTIONS];
-    return INSERT_IDS.map((id) => all.find((action) => action.id === id)).filter(Boolean);
+    return GROUP_INSERTS.publish
+      .concat(GROUP_INSERTS.blocks)
+      .map((id) => all.find((action) => action.id === id))
+      .filter(Boolean);
   }, []);
+
+  const insertById = useMemo(
+    () => Object.fromEntries(inserts.map((action) => [action.id, action])),
+    [inserts],
+  );
 
   const canUndo = !!editor && editor.can().undo();
   const canRedo = !!editor && editor.can().redo();
 
+  /** The registry insert button for one palette feature. */
+  const insertButton = (id) => {
+    const action = insertById[id];
+    if (!action) return null;
+    return (
+      <TbButton
+        key={action.id}
+        icon={action.icon}
+        label={t(action.i18nKey)}
+        active={!!editor && !!action.isActive && action.isActive(editor)}
+        disabled={!!editor && !!action.enabled && !action.enabled(editor)}
+        onClick={() => run(action)}
+      />
+    );
+  };
+
   return (
     <div className="tfr-toolbar">
-      <div className="tb-group">
+      <TbGroup label={t('toolbar.groupText')}>
         <TbButton
           icon={UndoIcon}
           label={t('toolbar.undo')}
@@ -163,11 +197,6 @@ export default function Toolbar({ editor, ctx }) {
           disabled={!canRedo}
           onClick={() => editor && editor.chain().focus().redo().run()}
         />
-      </div>
-
-      <span className="tb-sep" />
-
-      <div className="tb-group">
         <TbButton
           buttonRef={formattingRef}
           icon={TextStyleIcon}
@@ -184,6 +213,17 @@ export default function Toolbar({ editor, ctx }) {
           onClick={() => toggle('style')}
         />
         <TbButton
+          icon={LinkIcon}
+          label={t('toolbar.link')}
+          active={!!editor && editor.isActive('link')}
+          onClick={() => direct(insertLink)}
+        />
+      </TbGroup>
+
+      <span className="tb-sep" />
+
+      <TbGroup label={t('toolbar.groupBlocks')}>
+        <TbButton
           buttonRef={listRef}
           icon={BulletListIcon}
           label={t('toolbar.lists')}
@@ -197,11 +237,16 @@ export default function Toolbar({ editor, ctx }) {
           onClick={() => direct(insertTable)}
         />
         <TbButton
-          icon={LinkIcon}
-          label={t('toolbar.link')}
-          active={!!editor && editor.isActive('link')}
-          onClick={() => direct(insertLink)}
+          icon={FormulaIcon}
+          label={t('toolbar.formula')}
+          onClick={() => direct(insertFormula)}
         />
+        {insertButton('collage')}
+      </TbGroup>
+
+      <span className="tb-sep" />
+
+      <TbGroup label={t('toolbar.groupMedia')}>
         <TbButton
           buttonRef={mediaRef}
           icon={ImageIcon}
@@ -209,30 +254,19 @@ export default function Toolbar({ editor, ctx }) {
           active={menu === 'media'}
           onClick={() => toggle('media')}
         />
-        <TbButton
-          icon={FormulaIcon}
-          label={t('toolbar.formula')}
-          onClick={() => direct(insertFormula)}
-        />
-      </div>
+      </TbGroup>
 
       <span className="tb-sep" />
 
-      {/* The insert features that used to be reachable only through the wand
-          palette — one visible button each, sharing the palette's own action
-          records so toolbar and wand never drift apart. */}
-      <div className="tb-group">
-        {inserts.map((action) => (
-          <TbButton
-            key={action.id}
-            icon={action.icon}
-            label={t(action.i18nKey)}
-            active={!!editor && !!action.isActive && action.isActive(editor)}
-            disabled={!!editor && !!action.enabled && !action.enabled(editor)}
-            onClick={() => run(action)}
-          />
-        ))}
-      </div>
+      <TbGroup label={t('toolbar.groupPublish')}>
+        {insertButton('buttons')}
+        {insertButton('inlineButton')}
+        <TbButton
+          icon={SendIcon}
+          label={t('send.publishOptions')}
+          onClick={onPublishOptions}
+        />
+      </TbGroup>
 
       {menus.map((config) => (
         <Popover

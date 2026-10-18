@@ -267,6 +267,8 @@ function parseDetails(el) {
     type: BlockType.DETAILS,
     summary: summaryText,
     content: contentParts.join('').trim(),
+    // Telegram's `open` attribute — the block is expanded by default.
+    open: el.hasAttribute('open'),
   };
 }
 

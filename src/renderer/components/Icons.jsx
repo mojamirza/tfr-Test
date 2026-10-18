@@ -417,6 +417,14 @@ export const PreviewIcon = (p) => (
   </Svg>
 );
 
+export const InspectorIcon = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2.5" />
+    <path d="M15 4v16" />
+    <path d="M17.8 8.5h.01M17.8 11.5h.01M17.8 14.5h.01" />
+  </Svg>
+);
+
 export const RtlIcon = (p) => (
   <Svg {...p}>
     <path d="M15 4H9.5a3.5 3.5 0 0 0 0 7H15" />

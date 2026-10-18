@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import {
   CloseIcon,
   DraftsIcon,
+  InspectorIcon,
   MaximizeIcon,
   MinimizeIcon,
   PreviewIcon,
@@ -25,8 +26,10 @@ import { useI18n } from '../i18n/index.js';
  *   previewOpen: boolean,
  *   isRtl: boolean,
  *   draftsOpen: boolean,
+ *   inspectorOpen: boolean,
  *   onToggleRtl: () => void,
  *   onTogglePreview: () => void,
+ *   onToggleInspector: () => void,
  *   onOpenDrafts: () => void,
  *   onOpenSettings: () => void,
  * }} props
@@ -36,8 +39,10 @@ export default function TitleBar({
   previewOpen,
   isRtl,
   draftsOpen,
+  inspectorOpen,
   onToggleRtl,
   onTogglePreview,
+  onToggleInspector,
   onOpenDrafts,
   onOpenSettings,
 }) {
@@ -93,6 +98,15 @@ export default function TitleBar({
           onClick={onTogglePreview}
         >
           <PreviewIcon size={15} />
+        </button>
+        <button
+          type="button"
+          className={`tl-btn${inspectorOpen ? ' active' : ''}`}
+          title={t('titlebar.inspector')}
+          aria-label={t('titlebar.inspector')}
+          onClick={onToggleInspector}
+        >
+          <InspectorIcon size={15} />
         </button>
         <button
           type="button"

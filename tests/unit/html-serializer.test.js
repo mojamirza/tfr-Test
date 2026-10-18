@@ -15,11 +15,13 @@ import {
   buildRichMessageBody,
   checkChecklist,
   checkLimits,
+  checkNestingDepth,
   escapeText,
   isPrivateChatId,
   LINK_SCHEMES,
   localFileUrl,
   localUrlToPath,
+  mediaKindOf,
   MEDIA_SCHEMES,
   rewriteLocalMedia,
   safeUrl,
@@ -152,8 +154,11 @@ describe('blocks', () => {
     );
   });
 
-  it('writes an open <details> with its summary', () => {
+  it('writes <details> collapsed unless the author chose expanded', () => {
     expect(html('<details><summary>More</summary><p>body</p></details>')).toBe(
+      '<details><summary>More</summary><p>body</p></details>',
+    );
+    expect(html('<details data-open><summary>More</summary><p>body</p></details>')).toBe(
       '<details open><summary>More</summary><p>body</p></details>',
     );
   });
@@ -272,12 +277,93 @@ describe('media', () => {
     );
   });
 
-  it('writes a map with lat/long and a valid zoom', () => {
-    const out = html('<div class="tg-map" data-lat="35.6892" data-lon="51.389"></div>');
-    expect(out).toBe('<tg-map lat="35.6892" long="51.389" zoom="13"/>');
-    const zoom = Number((out.match(/zoom="(\d+)"/) || [])[1]);
-    expect(zoom).toBeGreaterThanOrEqual(LIMITS.MAP_ZOOM_MIN);
-    expect(zoom).toBeLessThanOrEqual(LIMITS.MAP_ZOOM_MAX);
+  it('mixes photos and videos in a slideshow, like the docs example', () => {
+    // Telegram documents `<tg-slideshow><img/><video/></tg-slideshow>` and its
+    // collage twin — every item used to ride an <img>, sending a video as a
+    // photo upload.
+    expect(
+      html(
+        '<div class="tg-gallery" data-kind="slideshow" data-images="https://a/p.jpg,https://a/v.mp4"></div>',
+      ),
+    ).toBe('<tg-slideshow><img src="https://a/p.jpg"/><video src="https://a/v.mp4"></video></tg-slideshow>');
+    expect(
+      html(
+        '<div class="tg-gallery" data-kind="collage" data-images="https://a/v.webm,https://a/p.jpg"></div>',
+      ),
+    ).toBe('<tg-collage><video src="https://a/v.webm"></video><img src="https://a/p.jpg"/></tg-collage>');
+  });
+
+  it('classifies gallery entries from the file extension', () => {
+    expect(mediaKindOf('https://a/v.mp4')).toBe('video');
+    expect(mediaKindOf('https://a/anim.gif')).toBe('video');
+    expect(mediaKindOf('https://a/song.mp3')).toBe('audio');
+    expect(mediaKindOf('https://a/note.ogg')).toBe('voice');
+    expect(mediaKindOf('https://a/p.jpg')).toBe('photo');
+    expect(mediaKindOf('https://a/no-extension')).toBe('photo');
+    // A locally picked file carries its name encoded inside the scheme URL.
+    expect(mediaKindOf('tfrfile://media/C%3A%2Fclips%2Fcl.MOV')).toBe('video');
+    expect(mediaKindOf('tfrfile://media/C%3A%2Fanim.gif')).toBe('video');
+    expect(mediaKindOf('tfrfile://media/C%3A%2Faudio/tones.ogg')).toBe('voice');
+  });
+
+  it('uploads a local gallery video as video, not photo', () => {
+    // The real flow: serialize first (the editor html keeps `tfrfile://` srcs),
+    // then rewriteLocalMedia builds the upload channel per entry kind.
+    const message = ser(
+      '<div class="tg-gallery" data-kind="slideshow" data-images="' +
+        `${localFileUrl('C:\\v.mp4')},${localFileUrl('C:\\p.jpg')}"></div>`,
+    );
+    const richMessage = buildInputRichMessage(message.html);
+    expect(richMessage.html).toBe(
+      '<tg-slideshow><video src="tg://video?id=m1"></video><img src="tg://photo?id=m2"></tg-slideshow>',
+    );
+    expect(richMessage.media).toEqual([
+      { id: 'm1', media: { type: 'video', media: 'attach://m1' } },
+      { id: 'm2', media: { type: 'photo', media: 'attach://m2' } },
+    ]);
+  });
+
+  it('writes a map with lat/long and the documented zoom 0-24', () => {
+    // 14 is the zoom in Telegram's own example — the default when unset.
+    expect(html('<div class="tg-map" data-lat="35.6892" data-lon="51.389"></div>')).toBe(
+      '<tg-map lat="35.6892" long="51.389" zoom="14"/>',
+    );
+    expect(
+      html('<div class="tg-map" data-lat="35.6892" data-lon="51.389" data-zoom="3"></div>'),
+    ).toBe('<tg-map lat="35.6892" long="51.389" zoom="3"/>');
+    // Outside 0-24 clamps instead of sending a rejected attribute.
+    expect(
+      html('<div class="tg-map" data-lat="35.6892" data-lon="51.389" data-zoom="99"></div>'),
+    ).toBe('<tg-map lat="35.6892" long="51.389" zoom="24"/>');
+  });
+
+  it("carries the map's optional size inside the documented bounds", () => {
+    // InputRichBlockMap: 0-10000 each, 10000 in total, ratio at most 20.
+    const sized = '<div class="tg-map" data-lat="35.7" data-lon="51.4" data-width="600" data-height="400"></div>';
+    expect(html(sized)).toBe('<tg-map lat="35.7" long="51.4" zoom="14" width="600" height="400"/>');
+    // 6000×300 = ratio 20 — exactly on the bound, still carried.
+    expect(
+      html('<div class="tg-map" data-lat="35.7" data-lon="51.4" data-width="6000" data-height="300"></div>'),
+    ).toContain('width="6000" height="300"');
+    // Ratio 21 over the line — both sizes are dropped, not clamped.
+    expect(
+      html('<div class="tg-map" data-lat="35.7" data-lon="51.4" data-width="6300" data-height="300"></div>'),
+    ).toBe('<tg-map lat="35.7" long="51.4" zoom="14"/>');
+    // 10000 + 1000 = over the total.
+    expect(
+      html('<div class="tg-map" data-lat="35.7" data-lon="51.4" data-width="10000" data-height="1000"></div>'),
+    ).toBe('<tg-map lat="35.7" long="51.4" zoom="14"/>');
+  });
+
+  it('wraps a captioned map in a figure, like the docs example', () => {
+    expect(
+      html(
+        '<div class="tg-map" data-lat="35.7" data-lon="51.4" data-caption="Downtown">' +
+          '<figcaption>Downtown</figcaption></div>',
+      ),
+    ).toBe(
+      '<figure><tg-map lat="35.7" long="51.4" zoom="14"/><figcaption>Downtown</figcaption></figure>',
+    );
   });
 
   it('drops a map without coordinates', () => {
@@ -289,7 +375,7 @@ describe('media', () => {
     expect(html('<div class="tg-map" data-lat="999" data-lon="0"></div>')).toBe('');
     expect(html('<div class="tg-map" data-lat="0" data-lon="-181"></div>')).toBe('');
     expect(html('<div class="tg-map" data-lat="-90" data-lon="180"></div>')).toBe(
-      '<tg-map lat="-90" long="180" zoom="13"/>',
+      '<tg-map lat="-90" long="180" zoom="14"/>',
     );
   });
 
@@ -618,6 +704,70 @@ describe('local media — picked from the device', () => {
     const { html: wire, files } = rewriteLocalMedia(remote);
     expect(wire).toBe(remote);
     expect(files).toBeNull();
+  });
+});
+
+describe('nesting preflight', () => {
+  const nest = (depth) => {
+    let markup = 'x';
+    for (let i = 0; i < depth; i += 1) markup = `<blockquote>${markup}</blockquote>`;
+    return markup;
+  };
+
+  it('counts every level of nested formatting and blocks', () => {
+    expect(checkNestingDepth('<p>text</p>')).toEqual({ ok: true, depth: 1, limit: 16 });
+    expect(checkNestingDepth('<p><strong>b</strong><em>i</em></p>').depth).toBe(2);
+    expect(checkNestingDepth(nest(4)).depth).toBe(4);
+  });
+
+  it('rejects worse than the documented 16 levels', () => {
+    const boundary = checkNestingDepth(nest(16));
+    expect(boundary.ok).toBe(true);
+    expect(boundary.depth).toBe(16);
+    const tooDeep = checkNestingDepth(nest(17));
+    expect(tooDeep.ok).toBe(false);
+    expect(tooDeep.depth).toBe(17);
+  });
+});
+
+describe('publish (send) options', () => {
+  it('writes every set publish parameter into the sendRichMessage body', () => {
+    const body = buildRichMessageBody('<p>x</p>', '@chat', {
+      sendParams: {
+        messageThreadId: '77',
+        directMessagesTopicId: 5,
+        replyToMessageId: '1001',
+        silent: true,
+        protectContent: true,
+        messageEffectId: '5159385339981119903',
+        businessConnectionId: 'bc:test',
+      },
+    });
+    expect(body.message_thread_id).toBe(77);
+    expect(body.direct_messages_topic_id).toBe(5);
+    expect(body.reply_parameters).toEqual({ message_id: 1001 });
+    expect(body.disable_notification).toBe(true);
+    expect(body.protect_content).toBe(true);
+    expect(body.message_effect_id).toBe('5159385339981119903');
+    expect(body.business_connection_id).toBe('bc:test');
+  });
+
+  it('carries only what the author set', () => {
+    const body = buildRichMessageBody('<p>x</p>', '@chat', { sendParams: {} });
+    expect(body.message_thread_id).toBeUndefined();
+    expect(body.disable_notification).toBeUndefined();
+    expect(body.protect_content).toBeUndefined();
+    expect(body.reply_parameters).toBeUndefined();
+    expect(body.message_effect_id).toBeUndefined();
+  });
+
+  it("gives drafts the topic field only, per the method's parameter list", () => {
+    const draft = buildDraftBody('<p>x</p>', '123', 7, {
+      sendParams: { messageThreadId: '77', silent: true, protectContent: true },
+    });
+    expect(draft.message_thread_id).toBe(77);
+    expect(draft.disable_notification).toBeUndefined();
+    expect(draft.direct_messages_topic_id).toBeUndefined();
   });
 });
 

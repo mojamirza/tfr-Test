@@ -340,6 +340,17 @@ export const Details = Node.create({
         },
         renderHTML: (attrs) => ({ 'data-summary': attrs.summary || '' }),
       },
+      // "Initially expanded" — the author's choice for how the reader sees the
+      // block. The editor DOM itself is always expanded while writing (an
+      // author has to see what is inside the block they are editing); the
+      // choice travels in `data-open`, which the wire serializer turns into
+      // the `open` attribute and the preview honours.
+      open: {
+        default: false,
+        parseHTML: (element) =>
+          element.hasAttribute('open') || element.hasAttribute('data-open'),
+        renderHTML: (attrs) => (attrs.open ? { 'data-open': '' } : {}),
+      },
     };
   },
 
@@ -359,13 +370,16 @@ export const Details = Node.create({
   addCommands() {
     return {
       setDetails:
-        (summary = 'Details') =>
+        (summary = 'Details', open = false) =>
         ({ commands }) =>
           commands.insertContent({
             type: this.name,
-            attrs: { summary },
+            attrs: { summary, open },
             content: [{ type: 'paragraph' }],
           }),
+      // Flipping "Initially expanded" is just an attribute write on the block
+      // the caret sits in — the details action computes the next value from
+      // `editor.getAttributes('details')` and calls updateAttributes.
     };
   },
 });
@@ -689,6 +703,34 @@ export const MapBlock = Node.create({
         parseHTML: (el) => parseFloat(el.getAttribute('data-lon')) || 0,
         renderHTML: (attrs) => ({ 'data-lon': String(attrs.longitude) }),
       },
+      // Zoom level 0-24 (InputRichBlockMap); the serializer clamps and
+      // defaults to Telegram's example value of 14 when unset.
+      zoom: {
+        default: null,
+        parseHTML: (el) => {
+          const zoom = parseInt(el.getAttribute('data-zoom'), 10);
+          return Number.isFinite(zoom) ? zoom : null;
+        },
+        renderHTML: (attrs) =>
+          Number.isFinite(attrs.zoom) ? { 'data-zoom': String(attrs.zoom) } : {},
+      },
+      // Optional rendered size, 0-10000 each (the serializer validates the
+      // total and ratio bounds and drops an out-of-bounds pair whole).
+      width: {
+        default: null,
+        parseHTML: (el) => parseInt(el.getAttribute('data-width'), 10) || null,
+        renderHTML: (attrs) => (Number.isFinite(attrs.width) ? { 'data-width': String(attrs.width) } : {}),
+      },
+      height: {
+        default: null,
+        parseHTML: (el) => parseInt(el.getAttribute('data-height'), 10) || null,
+        renderHTML: (attrs) => (Number.isFinite(attrs.height) ? { 'data-height': String(attrs.height) } : {}),
+      },
+      caption: {
+        default: '',
+        parseHTML: (el) => el.getAttribute('data-caption') || '',
+        renderHTML: (attrs) => (attrs.caption ? { 'data-caption': attrs.caption } : {}),
+      },
     };
   },
 
@@ -697,11 +739,12 @@ export const MapBlock = Node.create({
   },
 
   renderHTML({ node, HTMLAttributes }) {
-    const { latitude, longitude } = node.attrs;
+    const { latitude, longitude, zoom } = node.attrs;
+    const shown = Number.isFinite(zoom) ? ` · z${zoom}` : '';
     return [
       'div',
       mergeAttributes(HTMLAttributes, { class: 'tg-map' }),
-      `📍 ${latitude}, ${longitude}`,
+      `📍 ${latitude}, ${longitude}${shown}`,
     ];
   },
 
