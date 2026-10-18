@@ -822,8 +822,9 @@ function galleryToHtml(el, state) {
 export function buildInputRichMessage(html, options = {}) {
   // Media picked from the local disk travels in the editor as `tfrfile://`
   // URLs; here each becomes a `tg://photo?id=` reference and its path climbs
-  // out onto `_files` for the main process — which attaches the real uploads
-  // as multipart parts named `m1`, `m2`, … and then strips the field.
+  // out onto `_files` — an internal manifest the body builders hoist to the
+  // top level for the main process, which attaches the real uploads as
+  // multipart parts named `m1`, `m2`, … and then strips the field.
   const { html: wireHtml, files } = rewriteLocalMedia(html);
   const richMessage = { html: wireHtml };
   if (files && files.length) {
@@ -839,6 +840,27 @@ export function buildInputRichMessage(html, options = {}) {
 }
 
 /**
+ * `_files` is an internal manifest, not part of `InputRichMessage`: the main
+ * process reads it from the *top-level* body to know which local files to
+ * attach as multipart parts, and strips it before anything goes on the wire.
+ * Left inside `rich_message` it would ride the JSON to Telegram — absolute
+ * local paths in plain sight — while the actual uploads never reached the
+ * request, and the API answered
+ * "Bad Request: Can't parse InputRichMessageMedia: media not found".
+ *
+ * @param {object} body
+ * @param {object} richMessage
+ * @returns {object} the same body, with the manifest hoisted when present
+ */
+function hoistAttachments(body, richMessage) {
+  if (Array.isArray(richMessage._files) && richMessage._files.length) {
+    body._files = richMessage._files;
+    delete richMessage._files;
+  }
+  return body;
+}
+
+/**
  * Body for `sendRichMessage`.
  * @param {string} html
  * @param {string} chatId
@@ -846,7 +868,8 @@ export function buildInputRichMessage(html, options = {}) {
  * @returns {object}
  */
 export function buildRichMessageBody(html, chatId, options = {}) {
-  return { chat_id: chatId, rich_message: buildInputRichMessage(html, options) };
+  const richMessage = buildInputRichMessage(html, options);
+  return hoistAttachments({ chat_id: chatId, rich_message: richMessage }, richMessage);
 }
 
 /**
@@ -859,11 +882,11 @@ export function buildRichMessageBody(html, chatId, options = {}) {
  * @returns {object}
  */
 export function buildDraftBody(html, chatId, draftId, options = {}) {
-  return {
-    chat_id: Number(chatId),
-    draft_id: draftId,
-    rich_message: buildInputRichMessage(html, options),
-  };
+  const richMessage = buildInputRichMessage(html, options);
+  return hoistAttachments(
+    { chat_id: Number(chatId), draft_id: draftId, rich_message: richMessage },
+    richMessage,
+  );
 }
 
 /**
@@ -875,11 +898,11 @@ export function buildDraftBody(html, chatId, draftId, options = {}) {
  * @returns {object}
  */
 export function buildEditBody(html, chatId, messageId, options = {}) {
-  return {
-    chat_id: chatId,
-    message_id: Number(messageId) || messageId,
-    rich_message: buildInputRichMessage(html, options),
-  };
+  const richMessage = buildInputRichMessage(html, options);
+  return hoistAttachments(
+    { chat_id: chatId, message_id: Number(messageId) || messageId, rich_message: richMessage },
+    richMessage,
+  );
 }
 
 /**

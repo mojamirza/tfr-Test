@@ -76,6 +76,13 @@ covered by tests:
   wrong border and dragged the wrong neighbour
 
 ### Fixed — the message broke against the real Telegram API
+- **Every image, video, audio or document picked from the device failed to send** with
+  "Bad Request: Can't parse InputRichMessageMedia: media not found": the upload manifest was built
+  *inside* the `rich_message` object, but the main process reads it from the top-level body — so
+  the files never rode the multipart request and Telegram got `attach://` references with nothing
+  behind them. The manifest now rides the top level (and, incidentally, absolute local paths no
+  longer leak into the JSON that reaches Telegram). Tests had pinned the broken shape; they now
+  pin the main-process contract for all three send paths (send, draft, edit)
 - **The inline button dialog never opened at all** — the app's action context was wired with the
   other dialogs but not `askInlineButton`, so clicking the feature (toolbar ⊞ or the palette) only
   ever threw and toasted a "network error". Every dialog helper the action registry uses is now

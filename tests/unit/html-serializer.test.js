@@ -591,13 +591,26 @@ describe('local media — picked from the device', () => {
     expect(plain).toEqual({ html: '<p>text</p>' });
   });
 
-  it('sendRichMessage bodies carry the manifest for the main process to upload', () => {
+  it('sendRichMessage bodies hoist the upload manifest to the top level', () => {
+    // The main process reads `body._files` — a manifest inside `rich_message`
+    // is invisible to it: the attachments never rode the multipart request and
+    // Telegram answered "Can't parse InputRichMessageMedia: media not found".
     const body = buildRichMessageBody(`<img src="${localUrl}">`, '12345');
     expect(body.rich_message.media).toHaveLength(1);
-    expect(body.rich_message._files[0]).toEqual({
-      name: 'm1',
-      path: 'C:/Users/me/Pictures/cat.jpg',
-    });
+    expect(body._files).toEqual([{ name: 'm1', path: 'C:/Users/me/Pictures/cat.jpg' }]);
+    expect(body.rich_message._files).toBeUndefined();
+  });
+
+  it('draft and edit bodies carry the manifest the same way', () => {
+    const draft = buildDraftBody(`<img src="${localUrl}">`, '12345', 7);
+    expect(draft.draft_id).toBe(7);
+    expect(draft._files).toHaveLength(1);
+    expect(draft.rich_message._files).toBeUndefined();
+
+    const edit = buildEditBody(`<img src="${localUrl}">`, '12345', '42');
+    expect(edit.message_id).toBe(42);
+    expect(edit._files).toHaveLength(1);
+    expect(edit.rich_message._files).toBeUndefined();
   });
 
   it('leaves the editor-only form untouched — remote URLs are not rewritten', () => {
