@@ -11,6 +11,7 @@ import {
   HEADING_ACTIONS,
   LINK_ACTION,
   LIST_ACTIONS,
+  MARKER_STYLES,
   MEDIA_ACTIONS,
   PREMIUM_ACTIONS,
   TABLE_ACTIONS,
@@ -358,22 +359,25 @@ describe('the list menu', () => {
     expect(editor.calls).toEqual([{ name: 'setListItemValue', args: [7] }]);
   });
 
-  it('writes the ordered-list marker style, validating it against the spec', async () => {
+  it('writes the ordered-list marker style, picked from the documented set', async () => {
     const action = LIST_ACTIONS.find((a) => a.id === 'listType');
 
+    expect(MARKER_STYLES.map((style) => style.value)).toEqual(['', 'a', 'A', 'i', 'I']);
+
     const editor = mockEditor({ active: ['orderedList'] });
-    await action.run(editor, mockCtx({ askText: vi.fn(async () => 'a') }));
+    await action.run(editor, mockCtx({ askChoice: vi.fn(async () => 'a') }));
     expect(editor.calls).toEqual([{ name: 'setOrderedListType', args: ['a'] }]);
 
+    // "Numbers" is the empty value — a plain <ol> numbers by default.
     const cleared = mockEditor({ active: ['orderedList'] });
-    await action.run(cleared, mockCtx({ askText: vi.fn(async () => '  ') }));
+    await action.run(cleared, mockCtx({ askChoice: vi.fn(async () => '') }));
     expect(cleared.calls).toEqual([{ name: 'setOrderedListType', args: [''] }]);
 
-    const ctx = mockCtx({ askText: vi.fn(async () => 'x') });
-    const bad = mockEditor({ active: ['orderedList'] });
-    await action.run(bad, ctx);
-    expect(bad.calls).toEqual([]);
-    expect(ctx.notify).toHaveBeenCalledWith('toast.invalidListType', 'error');
+    // Cancel resolves null — the list stays untouched, nothing to validate
+    // any more: the picker cannot produce a value outside the set.
+    const cancelled = mockEditor({ active: ['orderedList'] });
+    await action.run(cancelled, mockCtx({ askChoice: vi.fn(async () => null) }));
+    expect(cancelled.calls).toEqual([]);
   });
 });
 

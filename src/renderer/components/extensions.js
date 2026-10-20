@@ -1226,6 +1226,14 @@ export const TableExtras = Extension.create({
             parseHTML: (el) => el.hasAttribute('data-compact'),
             renderHTML: (attrs) => (attrs.compact ? { 'data-compact': '' } : {}),
           },
+          borderless: {
+            // The docs carry two forms: `bordered` (the default look) and a
+            // plain `<table>` — the serializer writes `bordered` unless this
+            // editor attribute asks for the borderless form.
+            default: false,
+            parseHTML: (el) => el.hasAttribute('data-borderless'),
+            renderHTML: (attrs) => (attrs.borderless ? { 'data-borderless': '' } : {}),
+          },
         },
       },
       {
@@ -1260,6 +1268,10 @@ export const TableExtras = Extension.create({
         () =>
         ({ commands, editor }) =>
           commands.updateAttributes('table', { compact: !(editor.getAttributes('table') || {}).compact }),
+      toggleTableBorderless:
+        () =>
+        ({ commands, editor }) =>
+          commands.updateAttributes('table', { borderless: !(editor.getAttributes('table') || {}).borderless }),
       setCellAlign:
         (align = '') =>
         ({ commands, editor }) =>

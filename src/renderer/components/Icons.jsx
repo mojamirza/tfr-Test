@@ -463,10 +463,13 @@ export const PreviewIcon = (p) => (
 );
 
 export const InspectorIcon = (p) => (
+  /* The article's structure list — a bullet column with outline rows, so it
+     cannot be confused with the split-pane preview glyph next to it. */
   <Svg {...p}>
-    <rect x="3" y="4" width="18" height="16" rx="2.5" />
-    <path d="M15 4v16" />
-    <path d="M17.8 8.5h.01M17.8 11.5h.01M17.8 14.5h.01" />
+    <circle cx="4.6" cy="6.5" r="1.15" fill="currentColor" stroke="none" />
+    <circle cx="4.6" cy="12" r="1.15" fill="currentColor" stroke="none" />
+    <circle cx="4.6" cy="17.5" r="1.15" fill="currentColor" stroke="none" />
+    <path d="M9.5 6.5H20M9.5 12h5.5M9.5 17.5H20" />
   </Svg>
 );
 

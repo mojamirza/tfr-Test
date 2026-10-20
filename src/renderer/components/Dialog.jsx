@@ -8,6 +8,7 @@
  *   askButtons({ align, buttons })             → Promise<{align, buttons}|null>
  *   askInlineButton({ …button, existing })     → Promise<button|null|{removed:true}>
  *   askCodeLanguage({ value })                 → Promise<string|null>
+ *   askChoice({ titleKey, current, options })  → Promise<string|null>
  *   askMap({ …map fields, existing })          → Promise<map|null|{removed:true}>
  *   askDetails({ summary, open, existing })    → Promise<{summary, open}|null>
  *   confirm({ titleKey, bodyKey, confirmKey }) → Promise<boolean>
@@ -292,6 +293,19 @@ export function DialogProvider({ children }) {
     [],
   );
 
+  /**
+   * A pick-one list — the documented marker styles ride it today. The rows
+   * carry `{ value, labelKey }`; the current value is highlighted and the
+   * first click picks it, the way a Telegram radio row behaves.
+   */
+  const askChoice = useCallback(
+    (options = {}) =>
+      new Promise((resolve) => {
+        setDialog({ kind: 'choice', options, resolve });
+      }),
+    [],
+  );
+
   const askMap = useCallback(
     (options = {}) =>
       new Promise((resolve) => {
@@ -348,7 +362,11 @@ export function DialogProvider({ children }) {
   const accept = () => {
     if (!dialog) return;
     if (dialog.kind === 'confirm') finish(true);
-    else if (dialog.kind === 'link') {
+    else if (dialog.kind === 'choice') {
+      // OK keeps the current pick — including the plain default, which is
+      // the empty value the styles list carries for plain numbers.
+      finish(dialog.options.current || '');
+    } else if (dialog.kind === 'link') {
       if (!linkUrl.trim()) return;
       finish({ text: linkText, url: linkUrl });
     } else if (dialog.kind === 'buttons') {
@@ -449,7 +467,7 @@ export function DialogProvider({ children }) {
 
   return (
     <DialogContext.Provider
-      value={{ askText, askLink, askButtons, askInlineButton, askCodeLanguage, askMap, askDetails, confirm }}
+      value={{ askText, askLink, askButtons, askInlineButton, askCodeLanguage, askChoice, askMap, askDetails, confirm }}
     >
       {children}
 
@@ -647,6 +665,26 @@ export function DialogProvider({ children }) {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {dialog.kind === 'choice' && (
+              /* A pick-one list: the documented options only, the current
+                 one tinted, one click picks and closes. Keeping the values
+                 out of the free-text world removes the typo class entirely. */
+              <div className="dialog-list" role="listbox">
+                {(dialog.options.options || []).map((option) => (
+                  <button
+                    key={option.value || 'default'}
+                    type="button"
+                    role="option"
+                    aria-selected={option.value === dialog.options.current}
+                    className={`dialog-list-item${option.value === dialog.options.current ? ' active' : ''}`}
+                    onClick={() => finish(option.value)}
+                  >
+                    {t(option.labelKey)}
+                  </button>
+                ))}
               </div>
             )}
 

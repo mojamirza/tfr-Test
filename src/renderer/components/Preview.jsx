@@ -307,6 +307,7 @@ function renderBlock(block, index) {
       return (
         <table
           key={key}
+          data-borderless={block.borderless || undefined}
           className={[
             block.striped ? 'pv-striped' : '',
             block.compact ? 'pv-compact' : '',

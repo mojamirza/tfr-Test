@@ -8,12 +8,12 @@
 <p align="center"><em>Because bots should not have more rights than humans.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.7.2-2ca5e0" alt="Version 5.7.2">
+  <img src="https://img.shields.io/badge/version-5.7.3-2ca5e0" alt="Version 5.7.3">
   <img src="https://img.shields.io/badge/Bot%20API-10.3-2ca5e0?logo=telegram&logoColor=white" alt="Bot API 10.3">
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" alt="React 19">
   <img src="https://img.shields.io/badge/TipTap-2-8b5cf6" alt="TipTap 2">
-  <img src="https://img.shields.io/badge/tests-460%20passing-4fc3a1" alt="460 tests">
+  <img src="https://img.shields.io/badge/tests-464%20passing-4fc3a1" alt="464 tests">
   <img src="https://img.shields.io/badge/license-MIT-8b99a7" alt="MIT">
 </p>
 
@@ -161,8 +161,8 @@ The toolbar carries four labelled groups — **Text**, **Blocks**, **Media** and
 | ↶ ↷ | Undo / redo — the full ProseMirror history |
 | **Aa** | **Formatting** → Heading (opens H1–H6), Text, Quote, Pull quote, **Attribution** (the `<cite>` a quote may name), Code block *(with a searchable **language** picker — empty means plain text)*, Footer, Divider |
 | **B** | **Text style** → Bold, Italic, Underline, Strikethrough, Spoiler, Subscript, Superscript, Marked |
-| ☰ | **Insert list** → Ordered list, Bullet list, Checklist *(see [Checklists](#checklists))*, Details *(collapsible — with its **Initially expanded** toggle)*, **Marker style** (`a A i I`), **Reversed numbering**, **Explicit item number** |
-| ▦ | **Insert table** → an editable 3×3 table; a minimal icon bar adds and removes rows and columns, drags column widths, and one Layout popover aligns cells horizontally and vertically, stripes or compacts rows and titles the table with a caption |
+| ☰ | **Insert list** → Ordered list, Bullet list, Checklist *(see [Checklists](#checklists))*, Details *(collapsible — with its **Initially expanded** toggle)*, **Marker styles** — picked from a list (numbers, `a A i I`), **Reversed numbering**, **Explicit item number** |
+| ▦ | **Insert table** → an editable 3×3 table; a minimal icon bar adds and removes rows and columns, drags column widths, and one Layout popover aligns cells horizontally and vertically, stripes or compacts rows, drops the frame (**Borderless**) and titles the table with a caption |
 | 🔗 | **Insert link** → a *Create link* panel with **Text** and **URL** fields |
 | Σ | **Insert formula** → asks for the formula, drops in a math block |
 | ⧉ | **Collage** → a photo/video wall from URLs — two or more picked files make a **slideshow**; Telegram lets a slideshow mix photos and videos, and each entry uploads on its own channel |
@@ -194,8 +194,8 @@ the message you are writing.
 |---|---|
 | **Text** | Bold · Italic · Underline · Strikethrough · Spoiler · Marked · Subscript · Superscript · Monospace · Inline formula · Links · Inline mentions · Custom (Premium) emoji · Formatted date-time |
 | **Blocks** | Heading H1–H6 · Paragraph · Quote *(with attribution, **expandable to one line**)* · Pull quote *(with attribution)* · Code block — **language picked from a searchable list, empty for plain text** · Divider · Collapsible with an **Initially expanded** toggle · Footer · Formula block · Thinking placeholder *(draft mode)* |
-| **Lists** | Ordered *(start, marker style `a A i I`, reversed, explicit item numbers)* · Bulleted · Checklist *(see [Checklists](#checklists))* |
-| **Tables** | Header row, editable cells, drag-to-resize columns · Caption · Striped & compact rows · Cell `align`/`valign` · Cell `colspan`/`rowspan` |
+| **Lists** | Ordered *(start, marker styles **picked from a list**, reversed, explicit item numbers)* · Bulleted · Checklist *(see [Checklists](#checklists))* |
+| **Tables** | Header row, editable cells, drag-to-resize columns · Caption · Striped & compact rows · **Borderless** look · Cell `align`/`valign` · Cell `colspan`/`rowspan` |
 | **Media** | Photo · Video · Audio · Document · Slideshow *(‹ › carousel — **mixes photos and videos**, each entry uploading on its own channel)* · Collage · Location — picked **from the device and uploaded with the message** or by URL — each with an optional caption and a per-figure spoiler |
 | **Buttons** | Inline keyboard rows (`<tg-button-row>`) and the 10.3 in-text chip (`<tg-button>` inside a paragraph) — URL, callback data, Mini App, login, switch-inline (incl. chosen-chat filters), copy-text, disabled — with Telegram's four color themes (`primary` blue, `success` green, `danger` red, `link`), picked as swatches and tinted all the way from dialog to preview; in-text chips flow right with the paragraph and `url` buttons open their link |
 | **Structure** | Anchors (`<a name>`) and references (`<tg-reference>`) through the footnote `#name` links |
@@ -293,7 +293,7 @@ The live preview keeps its own path — `block-parser.js` and `inline-parser.js`
 | code block | `<pre><code class="language-…">` |
 | divider | `<hr/>` |
 | bullet / ordered list | `<ul>` / `<ol start="…">` |
-| table | `<table bordered>` with `<th>` / `<td>` |
+| table | `<table bordered>` — or a plain, borderless `<table>` — with `<th>` / `<td>` |
 | collapsible | `<details open><summary>` |
 | footer | `<footer>` |
 | photo / video / audio | `<img src>` / `<video src>` / `<audio src>` — plus `<figcaption>` when captioned |
@@ -375,7 +375,7 @@ Renderer (React)                     Main process (Electron)
 
 ```bash
 npm run dev           # Vite + Electron with hot reload
-npm test              # 265 unit tests (Vitest)
+npm test              # 464 unit tests (Vitest)
 npm run lint          # ESLint, zero warnings
 npm run format        # Prettier
 npm run build         # Windows: dist/TelegramFreeRich-Setup-5.4.0.exe + …-portable.exe
@@ -426,7 +426,7 @@ src/
     ├── constants.js            limits and defaults
     └── utils.js                sanitizeUrl, validation, helpers
 
-tests/unit/                     265 tests — HTML serializer, proxy, packaging, docs, parsers,
+tests/unit/                     464 tests — HTML serializer, proxy, packaging, docs, parsers,
                                 i18n parity, stylesheets, validation
 ```
 

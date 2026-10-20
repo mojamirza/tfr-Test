@@ -189,6 +189,16 @@ describe('tables', () => {
     ).toBe('<table bordered><tr><th>H</th><td>c</td></tr></table>');
   });
 
+  it('drops the bordered attribute for the borderless pick', () => {
+    expect(
+      html('<table data-borderless><tbody><tr><th><p>H</p></th><td><p>c</p></td></tr></tbody></table>'),
+    ).toBe('<table><tr><th>H</th><td>c</td></tr></table>');
+    // Borderless combines with the other modifiers like bordered does.
+    expect(
+      html('<table data-borderless data-striped data-compact><tr><td><p>c</p></td></tr></table>'),
+    ).toBe('<table striped compact><tr><td>c</td></tr></table>');
+  });
+
   it('keeps inline formatting inside cells but flattens blocks', () => {
     expect(html('<table><tr><td><p><strong>b</strong></p></td></tr></table>')).toBe(
       '<table bordered><tr><td><b>b</b></td></tr></table>',

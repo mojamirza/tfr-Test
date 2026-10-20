@@ -30,6 +30,7 @@ const OPENS = {
   buttons: ({ askButtons }, options) => askButtons(options),
   inlineBtn: ({ askInlineButton }, options) => askInlineButton(options),
   code: ({ askCodeLanguage }, options) => askCodeLanguage(options),
+  choice: ({ askChoice }, options) => askChoice(options),
   map: ({ askMap }, options) => askMap(options),
   details: ({ askDetails }, options) => askDetails(options),
   text: ({ askText }, options) => askText(options),
@@ -126,5 +127,26 @@ describe('every dialog kind renders', () => {
     const { container, root } = await openDialog('code');
     roots.push(root);
     expect(container.querySelector('.dialog-list')).toBeTruthy();
+  });
+
+  it('the choice dialog lists its options and tints the current pick', async () => {
+    const { container, root } = await openDialog('choice', {
+      titleKey: 'block.listType',
+      current: 'a',
+      options: [
+        { value: '', labelKey: 'marker.numbers' },
+        { value: 'a', labelKey: 'marker.lowerLetters' },
+        { value: 'A', labelKey: 'marker.upperLetters' },
+      ],
+    });
+    roots.push(root);
+
+    const rows = [...container.querySelectorAll('.dialog-list-item')];
+    expect(rows.map((row) => row.textContent)).toEqual(['Numbers', 'Lowercase letters', 'Uppercase letters']);
+    // The current pick carries the highlight; the others do not.
+    const active = rows.filter((row) => row.className.includes('active'));
+    expect(active.length).toBe(1);
+    expect(active[0].textContent).toBe('Lowercase letters');
+    expect(active[0].getAttribute('aria-selected')).toBe('true');
   });
 });

@@ -991,6 +991,12 @@
   background: var(--hover);
 }
 
+/* The pick-one row the current value owns — the radio-row highlight. */
+.dialog-list-item.active {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
 .dialog-list-item code {
   font-family: ui-monospace, 'Cascadia Mono', monospace;
   font-size: 12px;

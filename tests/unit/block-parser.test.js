@@ -89,6 +89,14 @@ describe('parseBlockElement', () => {
     expect(result.caption).toBe('Rates');
     expect(result.striped).toBe(true);
     expect(result.compact).toBe(true);
+    expect(result.borderless).toBe(false);
+  });
+
+  it('reads the borderless table pick', () => {
+    const result = parseBlockElement(
+      el('<table data-borderless><tr><td>a</td></tr></table>'),
+    );
+    expect(result.borderless).toBe(true);
   });
 
   it('reads ordered-list extras: start, marker type, reversed and item values', () => {

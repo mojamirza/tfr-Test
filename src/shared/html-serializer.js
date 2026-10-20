@@ -659,8 +659,11 @@ function tableToHtml(el, state) {
   // including … table rows" — the table and every row it actually emits
   // count, cells and the caption ride inside them.
   state.blocks += 1;
-
-  let open = '<table bordered';
+  // The docs carry two forms: a plain `<table>` and a `<table bordered>` —
+  // bordered with the optional `striped`/`compact` modifiers — and the
+  // editor's Borderless pick rides in as `data-borderless`.
+  let open = '<table';
+  if (!el.hasAttribute('data-borderless')) open += ' bordered';
   if (el.hasAttribute('data-striped')) open += ' striped';
   if (el.hasAttribute('data-compact')) open += ' compact';
   open += '>';

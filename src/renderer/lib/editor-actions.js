@@ -260,6 +260,19 @@ export const FORMAT_ACTIONS = [
 
 /* ═════════════════════ 3. Lists — the list button ═════════════════════ */
 
+/**
+ * The documented `<ol type>` marker styles, as the picker's choices —
+ * "Numbers" is the empty value, since a plain `<ol>` numbers by default.
+ * @type {Array<{ value: string, labelKey: string }>}
+ */
+export const MARKER_STYLES = [
+  { value: '', labelKey: 'marker.numbers' },
+  { value: 'a', labelKey: 'marker.lowerLetters' },
+  { value: 'A', labelKey: 'marker.upperLetters' },
+  { value: 'i', labelKey: 'marker.lowerRoman' },
+  { value: 'I', labelKey: 'marker.upperRoman' },
+];
+
 export const LIST_ACTIONS = [
   {
     id: 'orderedList',
@@ -314,7 +327,8 @@ export const LIST_ACTIONS = [
   },
   {
     // `<ol type="a|A|i|I">` — the marker style Rich HTML supports on ordered
-    // lists; a caret anywhere in the list is enough.
+    // lists; a caret anywhere in the list is enough. The documented styles
+    // are picked, not typed.
     id: 'listType',
     i18nKey: 'block.listType',
     icon: OrderedListIcon,
@@ -322,18 +336,13 @@ export const LIST_ACTIONS = [
     isActive: (editor) => !!(editor.getAttributes('orderedList') || {}).listType,
     run: async (editor, ctx) => {
       const current = (editor.getAttributes('orderedList') || {}).listType || '';
-      const type = await ctx.askText({
+      const type = await ctx.askChoice({
         titleKey: 'block.listType',
-        placeholderKey: 'dialog.listTypePlaceholder',
-        value: current,
+        current,
+        options: MARKER_STYLES,
       });
       if (type === null) return;
-      const value = type.trim();
-      if (value && !/^[aAiI]$/.test(value)) {
-        ctx.notify('toast.invalidListType', 'error');
-        return;
-      }
-      chain(editor).setOrderedListType(value).run();
+      chain(editor).setOrderedListType(type).run();
     },
   },
   {

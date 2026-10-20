@@ -252,6 +252,17 @@
   text-align: start;
 }
 
+/* The borderless pick strips cell outlines and the header tint in the
+   composer too — what you dial is what the preview and the wire carry. */
+.tfr-editor table[data-borderless] th,
+.tfr-editor table[data-borderless] td {
+  border: none;
+}
+
+.tfr-editor table[data-borderless] th {
+  background: transparent;
+}
+
 .tfr-editor .selectedCell::after {
   content: '';
   position: absolute;

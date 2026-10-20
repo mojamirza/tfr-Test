@@ -464,7 +464,7 @@
   font-size: 0.9em;
 }
 
-/* Table options — striped / compact / caption. */
+/* Table options - striped / compact / caption. */
 .bubble table.pv-striped tbody tr:nth-child(odd) {
   background: color-mix(in srgb, var(--text-muted) 7%, transparent);
 }
@@ -472,6 +472,18 @@
 .bubble table.pv-compact th,
 .bubble table.pv-compact td {
   padding: 2px 5px;
+}
+
+/* The borderless form the wire writes as a plain `<table>` — no cell
+   outlines and no header tint, like Telegram's borderless example. */
+.bubble table[data-borderless] th,
+.bubble table[data-borderless] td {
+  border: none;
+}
+
+.bubble table[data-borderless] th {
+  background: transparent;
+  font-weight: 600;
 }
 
 .bubble caption.pv-table-caption {

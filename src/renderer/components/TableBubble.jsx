@@ -251,6 +251,11 @@ export default function TableBubble({ editor, ctx }) {
                 on={!!table.compact}
                 onClick={() => editor.chain().focus().toggleTableCompact().run()}
               />
+              <ToggleRow
+                label={t('table.borderless')}
+                on={!!table.borderless}
+                onClick={() => editor.chain().focus().toggleTableBorderless().run()}
+              />
               <button
                 type="button"
                 className="table-bubble-caption"

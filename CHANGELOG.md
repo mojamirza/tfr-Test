@@ -1,5 +1,46 @@
 # Changelog
 
+## [5.7.3] - 2026-10-20
+
+### Fixed — a saved draft now sends as soon as it loads
+- **Send and Clear answered nothing after a restore** — TipTap's
+  `setContent` does not run the editor's own update event, so the state
+  mirror the rest of the app reads stayed stale: loading a saved local draft
+  (or booting with a restored autosave) left Send reporting "nothing to
+  send" and the Clear button silently idle, until one character was moved.
+  Loading now mirrors the editor's document state by hand
+  (`mirrorEditorState`), so the very next Send sends exactly what the
+  draft shows
+
+### Added — the wait for borderless tables is over
+- **Borderless tables** — Telegram's Rich HTML carries two table forms and
+  the wire only ever emitted one. The table Layout popover gains a
+  **Borderless** switch alongside striped/compact: the serialized table
+  drops its `bordered` attribute (a plain `<table>`), and the painter
+  strips cell outlines and the header tint in the editor, the preview and
+  (through the parser) the inspector's outline — the default table remains
+  bordered, and old messages serialize exactly as before
+
+### Changed — the marker style is picked, not typed
+- **The ordered-list marker styles are now a picker** — the doc's five
+  marker styles (numbers, lowercase letters, uppercase letters, lowercase
+  Roman numerals, uppercase Roman numerals) come as a pick-one dialog row
+  list with the current pick highlighted; no more `a/A/i/I` typing and its
+  "use one of a, A, i, I" toast — the class of typo is gone, and the
+  "Numbers" row is the plain numbered `<ol`
+
+### Changed — one composer detail back to Telegram blue
+- **The send FAB is Telegram's blue again** — the only saturated surface
+  in the shell drifted to a salmon gradient; it rides the accent token in
+  both themes now, matching the composer's round send button in Telegram
+  Desktop night and day
+
+### Changed — the inspector icon stopped dressing like the preview
+- **Article inspector got its own glyph** — it sat next to the preview
+  toggle as the same split-pane shape; it is the article's structure list
+  now (a bullet column with outline rows), unmistakable beside the
+  split-pane preview glyph at pill size
+
 ## [5.7.2] - 2026-10-19
 
 ### Fixed — the inspector now previews the same request a send runs

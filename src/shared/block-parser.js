@@ -196,6 +196,7 @@ function parseTable(el) {
     caption: (el.getAttribute('data-caption') || '').trim(),
     striped: el.hasAttribute('data-striped'),
     compact: el.hasAttribute('data-compact'),
+    borderless: el.hasAttribute('data-borderless'),
   };
 }
 

@@ -117,6 +117,21 @@ function Shell({ lang, onLangChange }) {
     setCharCount(text.length);
   }, []);
 
+  /**
+   * Content set programmatically — loading a saved draft, restoring the
+   * autosave — does not go through the editor's own update event, so nothing
+   * that keys off the state mirror learns about it: Send would look at the
+   * stale `html` and report "nothing to send", and Clear's guard would
+   * silently no-op, until the author moved a single character. Load advances
+   * the mirror by hand for exactly that reason.
+   * @param {import('@tiptap/core').Editor} source
+   */
+  const mirrorEditorState = useCallback((source) => {
+    if (!source) return;
+    setHtml(source.getHTML());
+    setCharCount(source.getText().length);
+  }, []);
+
   const editor = useTfrEditor({
     placeholder: () => tRef.current('editor.placeholder'),
     onUpdate: handleUpdate,
@@ -156,10 +171,11 @@ function Shell({ lang, onLangChange }) {
     (data) => {
       if (!editor || !data || (!data.html || !data.html.trim())) return;
       editor.commands.setContent(data.html);
+      mirrorEditorState(editor);
       if (data.isRtl) setIsRtl(true);
       toast(tRef.current('drafts.restored'), 'info');
     },
-    [editor, toast],
+    [editor, mirrorEditorState, toast],
   );
 
   useEffect(() => {
@@ -473,6 +489,10 @@ function Shell({ lang, onLangChange }) {
         const result = await window.app.draftsLoad(draft.id);
         if (result.ok && result.draft) {
           editor.commands.setContent(result.draft.html || '');
+          // setContent does not run the editor's own update event — without
+          // this mirror the very next Send answered "nothing to send" and
+          // the Clear button no-op'd, until one character was moved.
+          mirrorEditorState(editor);
           setIsRtl(!!result.draft.isRtl);
           setDraftsOpen(false);
           notify('drafts.loaded', 'success');
@@ -483,7 +503,7 @@ function Shell({ lang, onLangChange }) {
         notify('toast.networkError', 'error');
       }
     },
-    [editor, notify],
+    [editor, mirrorEditorState, notify],
   );
 
   const deleteDraft = useCallback(
