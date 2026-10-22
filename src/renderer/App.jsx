@@ -12,7 +12,7 @@
  * @module App
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { EditorContent } from '@tiptap/react';
 
 import BottomBar from './components/BottomBar.jsx';
@@ -76,6 +76,25 @@ function Shell({ lang, onLangChange }) {
   );
 
   const [theme, setTheme] = useState(() => themeOf(localStorage.getItem(THEME_KEY)));
+
+  /** Live height of the merged glass top bar (title row + toolbar rows) —
+      published as --topbar-h so the workspace columns can slide their
+      content beneath the glass. @type {React.Ref<HTMLElement>} */
+  const topbarRef = useRef(null);
+  useLayoutEffect(() => {
+    const node = topbarRef.current;
+    if (!node) return undefined;
+    const publish = () =>
+      document.body.style.setProperty('--topbar-h', `${node.offsetHeight}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      document.body.style.removeProperty('--topbar-h');
+    };
+  }, []);
+
   const [settings, setSettings] = useState(() => ({
     tokenSet: false,
     chatId: '',
@@ -577,20 +596,29 @@ function Shell({ lang, onLangChange }) {
 
   return (
     <>
-      <TitleBar
-        tokenSet={settings.tokenSet}
-        previewOpen={previewOpen}
-        draftsOpen={draftsOpen}
-        inspectorOpen={inspectorOpen}
-        isRtl={isRtl}
-        onToggleRtl={toggleRtl}
-        onTogglePreview={() => setPreviewOpen((v) => !v)}
-        onToggleInspector={() => setInspectorOpen((v) => !v)}
-        onOpenDrafts={openDrafts}
-        onOpenSettings={() => setSettingsOpen(true)}
-      />
+      {/* One glass fascia — the window controls and the formatting tools
+          share a single tinted surface instead of two stacked bars; the
+          workspace slides underneath so the glass blurs real content. */}
+      <header className="topbar" ref={topbarRef}>
+        <TitleBar
+          tokenSet={settings.tokenSet}
+          previewOpen={previewOpen}
+          draftsOpen={draftsOpen}
+          inspectorOpen={inspectorOpen}
+          isRtl={isRtl}
+          onToggleRtl={toggleRtl}
+          onTogglePreview={() => setPreviewOpen((v) => !v)}
+          onToggleInspector={() => setInspectorOpen((v) => !v)}
+          onOpenDrafts={openDrafts}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
 
-      <Toolbar editor={editor} ctx={ctx} onPublishOptions={() => setPublishOpen(true)} />
+        <Toolbar
+          editor={editor}
+          ctx={ctx}
+          onPublishOptions={() => setPublishOpen(true)}
+        />
+      </header>
 
       <main
         className={`workspace${previewOpen ? ' with-preview' : ''}${

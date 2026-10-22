@@ -1,5 +1,21 @@
 # Changelog
 
+## [5.7.6] - 2026-10-22
+
+### Fixed — the fascia is one surface now
+
+- **The buttons bar stopped being a separate card.** Title row and
+  formatting tools now live inside a single merged glass top bar — no
+  second strip between it and the article
+- **The glass finally behaves like glass.** The workspace pulls itself up
+  underneath the top bar (measured live, resizable toolbar included) and
+  pads its scroller back down, so the editor content slides beneath the
+  fascia and the blur acts on real text rather than an empty canvas; the
+  preview and inspector columns start beneath the glass edge
+- The material gained the off-axis light sweep Apple paints on Liquid
+  Glass, and the buttons on the fascia answer the pointer with a brighter
+  top specular — the interactive() behavior, translated
+
 ## [5.7.5] - 2026-10-22
 
 ### Added — Liquid Glass, tinted

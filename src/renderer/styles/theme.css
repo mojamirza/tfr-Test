@@ -90,6 +90,7 @@ textarea {
   --glass-panel: rgba(42, 58, 76, 0.86);
   --glass-spec: rgba(255, 255, 255, 0.18);
   --glass-edge: rgba(255, 255, 255, 0.07);
+  --glass-sheen: rgba(255, 255, 255, 0.09);
   --glass-shadows: inset 0 1px 0 var(--glass-spec),
     inset 1px 0 0 var(--glass-edge), inset -1px 0 0 var(--glass-edge),
     inset 0 -1px 0 var(--glass-edge);
@@ -152,6 +153,7 @@ body[data-theme='black'] {
   --glass-panel: rgba(10, 13, 17, 0.86);
   --glass-spec: rgba(255, 255, 255, 0.16);
   --glass-edge: rgba(255, 255, 255, 0.06);
+  --glass-sheen: rgba(255, 255, 255, 0.07);
   --ring: color-mix(in srgb, var(--accent) 26%, transparent);
   --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.55), 0 2px 12px rgba(0, 0, 0, 0.35);
   --shadow: 0 12px 38px rgba(0, 0, 0, 0.62);
@@ -194,6 +196,7 @@ body[data-theme='graphite'] {
   --glass-panel: rgba(38, 41, 46, 0.87);
   --glass-spec: rgba(255, 255, 255, 0.16);
   --glass-edge: rgba(255, 255, 255, 0.06);
+  --glass-sheen: rgba(255, 255, 255, 0.08);
   --ring: color-mix(in srgb, var(--accent) 24%, transparent);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.24);
   --shadow: 0 10px 34px rgba(0, 0, 0, 0.48);
@@ -236,6 +239,7 @@ body[data-theme='day'] {
   --glass-panel: rgba(255, 255, 255, 0.86);
   --glass-spec: rgba(255, 255, 255, 0.75);
   --glass-edge: rgba(16, 32, 54, 0.08);
+  --glass-sheen: rgba(255, 255, 255, 0.38);
   --ring: color-mix(in srgb, var(--accent) 20%, transparent);
   --shadow-sm: 0 1px 3px rgba(24, 40, 60, 0.09), 0 2px 10px rgba(24, 40, 60, 0.05);
   --shadow: 0 12px 32px rgba(24, 40, 60, 0.14);

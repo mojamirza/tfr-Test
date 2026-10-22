@@ -38,6 +38,8 @@
   </style>
 </head>
 <body>
+  <!-- ═══════════════ Glass fascia: title row + toolbar rows ═══════════════ -->
+  <div class="topbar">
   <!-- ═══════════════ Title bar ═══════════════ -->
   <div class="titlebar">
     <div class="titlebar-lead">
@@ -96,6 +98,14 @@
       </div>
     </div>
   </div>
+  </div>
+  <script>
+    // Mirrors App.jsx's ResizeObserver: the workspace slides under the glass.
+    document.body.style.setProperty(
+      '--topbar-h',
+      document.querySelector('.topbar').offsetHeight + 'px',
+    );
+  </script>
 
   <!-- ═══════════════ Workspace: editor + inspector ═══════════════ -->
   <main class="workspace with-inspector">
