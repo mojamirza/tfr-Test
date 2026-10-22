@@ -8,12 +8,31 @@
  */
 
 import { useMemo, useState } from 'react';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import { BlockType, InlineType } from '../../shared/block-types.js';
 import { parseAllBlocks } from '../../shared/block-parser.js';
 import { CloseIcon } from './Icons.jsx';
 import { useI18n } from '../i18n/index.js';
 import { mediaKindForUrl } from '../lib/editor-actions.js';
 import { KIND_GLYPH, fileNameOf } from './extensions.js';
+
+/**
+ * What Telegram draws for a `<tg-math>` source: the formula typeset. The
+ * KaTeX output mirrors the client-side rendering; a malformed source
+ * displays as-is rather than throwing, which is exactly what a malformed
+ * block would do on the wire.
+ *
+ * @param {{ tex: string, display?: boolean }} props
+ */
+function MathRender({ tex, display = false }) {
+  const html = useMemo(
+    () => katex.renderToString(tex, { throwOnError: false, displayMode: display }),
+    [tex, display],
+  );
+  // KaTeX's own escaped markup; the app builds none of it from user input.
+  return <span dir="ltr" dangerouslySetInnerHTML={{ __html: html }} />;
+}
 
 /**
  * One gallery entry: the real media, or a labelled tile if it will not load.
@@ -185,7 +204,11 @@ function renderSegment(segment, index) {
     } else if (mark === InlineType.SPOILER) {
       node = <span className="pv-spoiler">{node}</span>;
     } else if (mark === InlineType.MATH) {
-      node = <span className="pv-math-inline">{node}</span>;
+      node = (
+        <span className="pv-math-inline">
+          {typeof node === 'string' ? <MathRender tex={node} /> : node}
+        </span>
+      );
     }
     // The Premium entities have no HTML counterpart — Telegram renders a
     // special chip for each, which the preview imitates.
@@ -354,7 +377,7 @@ function renderBlock(block, index) {
     case BlockType.MATH_BLOCK:
       return (
         <div key={key} className="pv-math">
-          {block.text}
+          <MathRender tex={block.text} display />
         </div>
       );
 

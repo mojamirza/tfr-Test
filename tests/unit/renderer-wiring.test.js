@@ -39,6 +39,7 @@ const CTX_HELPERS = [
   'askButtons',
   'askInlineButton',
   'askCodeLanguage',
+  'askFormula',
   'askChoice',
   'askMap',
   'askDetails',

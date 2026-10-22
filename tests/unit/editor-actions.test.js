@@ -1128,16 +1128,31 @@ describe('the table cell extras', () => {
   });
 });
 
-/* ═══════════════════ 9. Formula ═══════════════════ */describe('insertFormula', () => {
+/* ═══════════════════ 9. Formula ═══════════════════ */
+describe('insertFormula', () => {
+  /** A selection whose $from sits inside a node of the given type. */
+  const inside = (typeName, attrs = {}) => ({
+    empty: true,
+    $from: { parent: { type: { name: typeName }, attrs } },
+  });
+
   it('inserts a math block from the entered formula', async () => {
-    const editor = mockEditor();
-    await insertFormula(editor, mockCtx({ askText: vi.fn(async () => 'a^2+b^2') }));
+    const editor = mockEditor({ selection: inside('paragraph') });
+    await insertFormula(editor, mockCtx({ askFormula: vi.fn(async () => 'a^2+b^2') }));
     expect(editor.calls).toEqual([{ name: 'setMathBlock', args: ['a^2+b^2'] }]);
   });
 
+  it('rewrites the block in place when the caret is inside one', async () => {
+    const editor = mockEditor({ selection: inside('mathBlock', { formula: 'x' }) });
+    await insertFormula(editor, mockCtx({ askFormula: vi.fn(async () => 'x^2') }));
+    expect(editor.calls).toEqual([
+      { name: 'updateAttributes', args: ['mathBlock', { formula: 'x^2' }] },
+    ]);
+  });
+
   it('does nothing when cancelled', async () => {
-    const editor = mockEditor();
-    await insertFormula(editor, mockCtx({ askText: vi.fn(async () => null) }));
+    const editor = mockEditor({ selection: inside('paragraph') });
+    await insertFormula(editor, mockCtx({ askFormula: vi.fn(async () => null) }));
     expect(editor.calls).toEqual([]);
   });
 });

@@ -8,6 +8,7 @@
  *   askButtons({ align, buttons })             → Promise<{align, buttons}|null>
  *   askInlineButton({ …button, existing })     → Promise<button|null|{removed:true}>
  *   askCodeLanguage({ value })                 → Promise<string|null>
+ *   askFormula({ titleKey, placeholder, value }) → Promise<string|null>
  *   askChoice({ titleKey, current, options })  → Promise<string|null>
  *   askMap({ …map fields, existing })          → Promise<map|null|{removed:true}>
  *   askDetails({ summary, open, existing })    → Promise<{summary, open}|null>
@@ -16,7 +17,9 @@
  * @module components/Dialog
  */
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import { BUTTON_KINDS, BUTTON_STYLES, validMapSize } from '../../shared/html-serializer.js';
 import { parseCoords } from '../lib/editor-actions.js';
 import { useI18n } from '../i18n/index.js';
@@ -31,6 +34,7 @@ const DialogContext = createContext(null);
  *   askButtons: (opts?: object) => Promise<{align: string, buttons: object[]}|null>,
  *   askInlineButton: (opts?: object) => Promise<object|null>,
  *   askCodeLanguage: (opts?: object) => Promise<string|null>,
+ *   askFormula: (opts?: object) => Promise<string|null>,
  *   askMap: (opts?: object) => Promise<object|null>,
  *   askDetails: (opts?: object) => Promise<object|null>,
  *   confirm: (opts?: object) => Promise<boolean>,
@@ -227,9 +231,24 @@ export function DialogProvider({ children }) {
   const [btnRows, setBtnRows] = useState([]);
   const [btnSingle, setBtnSingle] = useState(null);
   const [codePick, setCodePick] = useState(null);
+  const [formulaText, setFormulaText] = useState('');
   const [mapFields, setMapFields] = useState(null);
   const [detailsFields, setDetailsFields] = useState(null);
   const firstFieldRef = useRef(null);
+
+  /**
+   * The live KaTeX rendering beside the LaTeX source. The options mirror
+   * what Telegram's clients receive: no thrown errors make the preview
+   * die, a malformed source simply displays as-is. Empty shows the
+   * awaiting note; renderToString is cheap enough to run per keystroke.
+   */
+  const formulaPreview = useMemo(
+    () =>
+      formulaText.trim()
+        ? katex.renderToString(formulaText, { throwOnError: false, displayMode: true })
+        : '',
+    [formulaText],
+  );
 
   const askText = useCallback(
     (options = {}) =>
@@ -294,6 +313,20 @@ export function DialogProvider({ children }) {
   );
 
   /**
+   * The LaTeX editor: a source textarea beside a KaTeX rendering of exactly
+   * what Telegram will draw for `<tg-math-block>`.Editing an existing block
+   * passes its current source as `value`.
+   */
+  const askFormula = useCallback(
+    (options = {}) =>
+      new Promise((resolve) => {
+        setFormulaText(options.value || '');
+        setDialog({ kind: 'formula', options, resolve });
+      }),
+    [],
+  );
+
+  /**
    * A pick-one list — the documented marker styles ride it today. The rows
    * carry `{ value, labelKey }`; the current value is highlighted and the
    * first click picks it, the way a Telegram radio row behaves.
@@ -349,6 +382,7 @@ export function DialogProvider({ children }) {
       setBtnRows([]);
       setBtnSingle(null);
       setCodePick(null);
+      setFormulaText('');
       setMapFields(null);
       setDetailsFields(null);
     },
@@ -400,6 +434,11 @@ export function DialogProvider({ children }) {
         allowGroupChats: !!btnSingle.allowGroupChats,
         allowChannelChats: !!btnSingle.allowChannelChats,
       });
+    } else if (dialog.kind === 'formula') {
+      // A blank formula has nothing for Telegram to render — the panel stays
+      // open until the source has content, exactly like the link dialog does.
+      if (!formulaText.trim()) return;
+      finish(formulaText);
     } else if (dialog.kind === 'code') {
       // The query doubles as the value: pick from the list, or type a custom
       // identifier Telegram accepts. Lowercase — `language-Python` and
@@ -467,7 +506,7 @@ export function DialogProvider({ children }) {
 
   return (
     <DialogContext.Provider
-      value={{ askText, askLink, askButtons, askInlineButton, askCodeLanguage, askChoice, askMap, askDetails, confirm }}
+      value={{ askText, askLink, askButtons, askInlineButton, askCodeLanguage, askFormula, askChoice, askMap, askDetails, confirm }}
     >
       {children}
 
@@ -664,6 +703,47 @@ export function DialogProvider({ children }) {
                       <code>{lang.id}</code>
                     </button>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {dialog.kind === 'formula' && (
+              <div className="dialog-fields">
+                <label htmlFor="formula-src">{t('dialog.formulaSource')}</label>
+                <textarea
+                  id="formula-src"
+                  ref={firstFieldRef}
+                  className="dialog-input dialog-textarea"
+                  rows={4}
+                  value={formulaText}
+                  placeholder={
+                    dialog.options?.placeholder || 'x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}'
+                  }
+                  // LaTeX reads left-to-right even in the Persian interface.
+                  dir="ltr"
+                  spellCheck={false}
+                  onChange={(event) => setFormulaText(event.target.value)}
+                  // Enter is a LaTeX line break; Ctrl+Enter is the insertion.
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                      event.preventDefault();
+                      accept();
+                    }
+                  }}
+                />
+                <label id="formula-preview-label">{t('dialog.formulaPreview')}</label>
+                <div
+                  className="formula-preview"
+                  dir="ltr"
+                  role="status"
+                  aria-labelledby="formula-preview-label"
+                  aria-live="polite"
+                >
+                  {formulaPreview ? (
+                    <span dangerouslySetInnerHTML={{ __html: formulaPreview }} />
+                  ) : (
+                    <span className="formula-preview-empty">{t('dialog.formulaAwait')}</span>
+                  )}
                 </div>
               </div>
             )}

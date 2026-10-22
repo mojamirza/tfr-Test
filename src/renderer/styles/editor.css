@@ -2,14 +2,15 @@
  * Editor surface — a modern document column with Telegram composer typography.
  */
 
-/* The message is a centered document column, not edge-to-edge text: the
-   widest comfortable line, RTL-safe via the logical margin. */
+/* The message is a centered document column, not edge-to-edge text: wide
+   enough that the author's space feels open, still a line you can read
+   across. RTL-safe via the logical margin. */
 .editor-pane .ProseMirror,
 .tfr-editor {
   min-height: 100%;
-  max-width: 860px;
+  max-width: 1000px;
   margin-inline: auto;
-  padding: 26px 30px 70px;
+  padding: 26px 32px 70px;
   outline: none;
   font-size: 15px;
   line-height: 1.62;

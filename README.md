@@ -8,12 +8,12 @@
 <p align="center"><em>Because bots should not have more rights than humans.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.7.6-2ca5e0" alt="Version 5.7.6">
+  <img src="https://img.shields.io/badge/version-5.7.7-2ca5e0" alt="Version 5.7.7">
   <img src="https://img.shields.io/badge/Bot%20API-10.3-2ca5e0?logo=telegram&logoColor=white" alt="Bot API 10.3">
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" alt="React 19">
   <img src="https://img.shields.io/badge/TipTap-2-8b5cf6" alt="TipTap 2">
-  <img src="https://img.shields.io/badge/tests-465%20passing-4fc3a1" alt="465 tests">
+  <img src="https://img.shields.io/badge/tests-466%20passing-4fc3a1" alt="466 tests">
   <img src="https://img.shields.io/badge/license-MIT-8b99a7" alt="MIT">
 </p>
 
@@ -170,7 +170,7 @@ The toolbar carries four labelled groups — **Text**, **Blocks**, **Media** and
 | ☰ | **Insert list** → Ordered list, Bullet list, Checklist *(see [Checklists](#checklists))*, Details *(collapsible — with its **Initially expanded** toggle)*, **Marker styles** — picked from a list (numbers, `a A i I`), **Reversed numbering**, **Explicit item number** |
 | ▦ | **Insert table** → an editable 3×3 table; a minimal icon bar adds and removes rows and columns, drags column widths, and one Layout popover aligns cells horizontally and vertically, stripes or compacts rows, drops the frame (**Borderless**) and titles the table with a caption |
 | 🔗 | **Insert link** → a *Create link* panel with **Text** and **URL** fields |
-| Σ | **Insert formula** → asks for the formula, drops in a math block |
+| Σ | **Insert formula** → typesets what you type into a **live preview** beside the LaTeX source (KaTeX, the same math Telegram draws) — inserting a new math block, or rewriting the one the caret sits in |
 | ⧉ | **Collage** → a photo/video wall from URLs — two or more picked files make a **slideshow**; Telegram lets a slideshow mix photos and videos, and each entry uploads on its own channel |
 | 🖼 | **Insert media** → opens the **device picker** (photos/videos from local storage, several become a slideshow; audio and documents get their own pickers) · cancel it to paste remote URLs instead · **Location** *(with zoom 0–24, optional rendered size with its documented bounds, and a caption)*, **Spoiler** (blur the media until tapped), **Caption…** (the `<figcaption>` under a media item) |
 | ⊞ ➸ | **Buttons row**, the 10.3 **Inline button in text** — the interactive publish-time layer |
@@ -382,7 +382,7 @@ Renderer (React)                     Main process (Electron)
 
 ```bash
 npm run dev           # Vite + Electron with hot reload
-npm test              # 465 unit tests (Vitest)
+npm test              # 466 unit tests (Vitest)
 npm run lint          # ESLint, zero warnings
 npm run format        # Prettier
 npm run build         # Windows: dist/TelegramFreeRich-Setup-5.4.0.exe + …-portable.exe
@@ -433,7 +433,7 @@ src/
     ├── constants.js            limits and defaults
     └── utils.js                sanitizeUrl, validation, helpers
 
-tests/unit/                     465 tests — HTML serializer, proxy, packaging, docs, parsers,
+tests/unit/                     466 tests - HTML serializer, proxy, packaging, docs, parsers,
                                 i18n parity, stylesheets, validation
 ```
 

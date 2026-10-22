@@ -838,17 +838,28 @@ export const MEDIA_ACTIONS = [
 /* ═════════════════════ 7. Formula — the sigma button ═════════════════════ */
 
 /**
- * Ask for a formula and insert it as a block.
+ * Ask for a formula with a live KaTeX preview and insert it as a block.
+ * When the caret already sits inside a math block, the dialog opens with
+ * that block's source and a confirm rewrites it in place.
  * @param {object} editor
  * @param {object} ctx
  */
 export async function insertFormula(editor, ctx) {
-  const formula = await ctx.askText({
+  // The TipTap selection carries $from into the caret's node; a sparse
+  // selection (tests, a NodeSelection heard) falls back to plain insertion.
+  const parent = editor.state.selection?.$from?.parent;
+  const editing = parent?.type?.name === 'mathBlock';
+  const formula = await ctx.askFormula({
     titleKey: 'toolbar.formula',
+    value: editing ? parent.attrs.formula || '' : '',
     placeholder: 'x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}',
   });
   if (!formula) return;
-  chain(editor).setMathBlock(formula).run();
+  if (editing) {
+    chain(editor).updateAttributes('mathBlock', { formula }).run();
+  } else {
+    chain(editor).setMathBlock(formula).run();
+  }
 }
 
 export const FORMULA_ACTION = {

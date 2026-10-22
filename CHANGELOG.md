@@ -1,5 +1,25 @@
 # Changelog
 
+## [5.7.7] - 2026-10-22
+
+### Added — the formula editor typesets as you type
+
+- **Insert formula grew a live preview.** The sigma button now opens a
+  dedicated LaTeX editor: a monospaced, readable-height source field
+  beside a KaTeX window that re-renders every keystroke — the same math
+  Telegram's clients draw for `<tg-math-block>`. A malformed source
+  displays as-is instead of throwing, Ctrl+Enter inserts, and the panel
+  stays open until the source has content (a blank confirm does nothing)
+- **Editing a formula that exists.** With the caret inside a math block,
+  the dialog opens carrying that block's source and confirm rewrites it
+  in place — no delete-and-retype round-trip
+- **The chat preview typesets too.** The live Telegram-style preview
+  renders inline `<tg-math>` and block `<tg-math-block>` through the same
+  KaTeX pass, so the preview bubble matches what arrives in the chat
+- **The writing column widened** — the centered document measure grows
+  from 860px to 1000px (side padding 32px), a visibly larger writing
+  space on wide windows that still reads comfortably across a line
+
 ## [5.7.6] - 2026-10-22
 
 ### Fixed — the fascia is one surface now
