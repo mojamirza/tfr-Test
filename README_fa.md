@@ -8,7 +8,7 @@
 <p align="center"><em>چون بات‌ها نباید از انسان‌ها حقوق بیشتری داشته باشند.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.7.3-2ca5e0" alt="نسخه ۵٫۷٫۳">
+  <img src="https://img.shields.io/badge/version-5.7.4-2ca5e0" alt="نسخه ۵٫۷٫۴">
   <img src="https://img.shields.io/badge/Bot%20API-10.3-2ca5e0?logo=telegram&logoColor=white" alt="Bot API 10.3">
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" alt="React 19">
@@ -31,6 +31,12 @@
 
 <p align="center">
   <img src="screenshot.jpg" width="880" alt="تله‌گرام‌فری‌ریچ — ویرایشگر و پیش‌نمایش زنده">
+</p>
+
+<p align="center">
+  <img src="assets/theme-black.jpg" width="286" alt="پوسته مشکی">
+  <img src="assets/theme-graphite.jpg" width="286" alt="پوسته گرافیتی">
+  <img src="assets/theme-day.jpg" width="286" alt="پوسته روز">
 </p>
 
 ---
@@ -205,7 +211,7 @@ npm run dev
 - **هشدارهای قابلیت** — پیش از آنکه API با خطای نامفهوم جواب دهد: پیش‌نویس رسانه نمی‌برد، محتوا بیش از ۱۶ سطح تودرتو نمی‌شود، دکمهٔ وب‌اپ چت خصوصی می‌خواهد و برای پیام‌های حساب کسب‌وکار پذیرفته نمی‌شود، دکمه‌های پرسش خطی در اتصال کسب‌وکار و چت‌های پیام مستقیم حذف می‌شوند، جلوه‌های پیام مخصوص چت خصوصی هستند و نشانی ورود باید با @BotFather تأیید شود
 - **میان‌برهای مارک‌داون** — `## `، `> `، `- `، `1. `، ` ``` `، `**پررنگ**`، `` `کد` ``
 - **پالت درج** — یک کادر جست‌وجو روی تمام بلوک‌ها و قالب‌ها
-- **تم تیره و روشن**، رابط انگلیسی و فارسی، پشتیبانی کامل راست‌به‌چپ
+- **چهار پوسته** — Night، Black، Graphite، Day — از کاشی‌های کوچک در پنل تنظیمات انتخاب می‌شوند
 - **شمارشگر کاراکتر** برای محدودیت ۳۲٬۷۶۸ تایی تلگرام
 - **بدون تشخیص خودکار** — مقدار `skip_entity_detection` را می‌فرستد و هشتگ و شمارهٔ تلفن را مثل متن ساده نگه می‌دارد
 

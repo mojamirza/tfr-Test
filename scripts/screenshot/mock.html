@@ -177,5 +177,64 @@
     <button class="bb-btn" title="Clear"><span class="tb-icon"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7.5 7l1 13h7l1-13"/><path d="M10.5 11v5M13.5 11v5"/></svg></span></button>
     <button class="bb-send" title="Send"><span class="tb-icon" style="width:21px;height:21px;stroke:#fff"><svg viewBox="0 0 24 24"><path d="M4 11.5 20 4l-5 16-3.5-6.5L4 11.5z"/><path d="M11.5 13.5 20 4"/></svg></span></button>
   </div>
+
+  <!-- ═══ Settings sheet — shown with --settings (the theme preview cards). -->
+  <div class="overlay" id="settings-shot" style="display:none">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h3>Settings</h3>
+        <button type="button" class="sheet-close" aria-label="Close"><span class="tb-icon" style="width:14px;height:14px"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></span></button>
+      </div>
+      <div class="sheet-body">
+        <p class="sheet-note">Bot token — encrypted on disk, never shown in the app.</p>
+        <div class="sheet-field">
+          <label>Theme</label>
+          <div class="theme-picker">
+            <button type="button" role="radio" aria-checked="true" class="theme-card active">
+              <span class="theme-card-surface" style="background:#17212b">
+                <span class="theme-card-bar" style="background:#253140"></span>
+                <span class="theme-card-line" style="background:rgba(255,255,255,.75)"></span>
+                <span class="theme-card-line short" style="background:rgba(255,255,255,.3)"></span>
+                <span class="theme-card-fab" style="background:#4ea4f6"></span>
+              </span>
+              <span class="theme-card-name">Night</span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" class="theme-card">
+              <span class="theme-card-surface" style="background:#07090b">
+                <span class="theme-card-bar" style="background:#14171c"></span>
+                <span class="theme-card-line" style="background:rgba(255,255,255,.75)"></span>
+                <span class="theme-card-line short" style="background:rgba(255,255,255,.28)"></span>
+                <span class="theme-card-fab" style="background:#3ba0f9"></span>
+              </span>
+              <span class="theme-card-name">Black</span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" class="theme-card">
+              <span class="theme-card-surface" style="background:#202226">
+                <span class="theme-card-bar" style="background:#2a2d32"></span>
+                <span class="theme-card-line" style="background:rgba(245,245,247,.72)"></span>
+                <span class="theme-card-line short" style="background:rgba(245,245,247,.28)"></span>
+                <span class="theme-card-fab" style="background:#0a84ff"></span>
+              </span>
+              <span class="theme-card-name">Graphite</span>
+            </button>
+            <button type="button" role="radio" aria-checked="false" class="theme-card">
+              <span class="theme-card-surface" style="background:#ffffff">
+                <span class="theme-card-bar" style="background:#eef1f4"></span>
+                <span class="theme-card-line" style="background:rgba(23,33,43,.72)"></span>
+                <span class="theme-card-line short" style="background:rgba(23,33,43,.26)"></span>
+                <span class="theme-card-fab" style="background:#3390ec"></span>
+              </span>
+              <span class="theme-card-name">Day</span>
+            </button>
+          </div>
+        </div>
+        <p class="sheet-note">Language follows the ribbon below; RTL mirrors the whole surface.</p>
+      </div>
+      <div class="sheet-actions">
+        <button type="button" class="dialog-btn">Test connection</button>
+        <button type="button" class="dialog-btn primary">Save</button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

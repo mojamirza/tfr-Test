@@ -8,7 +8,7 @@
 <p align="center"><em>Because bots should not have more rights than humans.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.7.3-2ca5e0" alt="Version 5.7.3">
+  <img src="https://img.shields.io/badge/version-5.7.4-2ca5e0" alt="Version 5.7.4">
   <img src="https://img.shields.io/badge/Bot%20API-10.3-2ca5e0?logo=telegram&logoColor=white" alt="Bot API 10.3">
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" alt="React 19">
@@ -31,6 +31,12 @@
 
 <p align="center">
   <img src="screenshot.jpg" width="880" alt="TelegramFreeRich — editor and live preview">
+</p>
+
+<p align="center">
+  <img src="assets/theme-black.jpg" width="286" alt="Black theme">
+  <img src="assets/theme-graphite.jpg" width="286" alt="Graphite theme">
+  <img src="assets/theme-day.jpg" width="286" alt="Day theme">
 </p>
 
 ---
@@ -217,7 +223,8 @@ And while you write:
   whitelisted with @BotFather
 - **Markdown shortcuts** — `## `, `> `, `- `, `1. `, ` ``` `, `**bold**`, `` `code` ``
 - **Insert palette** — one search box over every block and format
-- **Dark and light themes**, English and Persian UI, full right-to-left support
+- **Four themes** — Night, Black, Graphite, Day — picked as miniature cards in Settings, English
+  and Persian UI, full right-to-left support
 - **Character counter** against Telegram's 32,768 limit
 - **Skip auto-detection** — sends `skip_entity_detection`, leaving hashtags and phone numbers as
   plain text

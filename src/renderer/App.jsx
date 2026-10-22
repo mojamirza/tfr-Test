@@ -33,7 +33,7 @@ import {
   checkLimits,
   isPrivateChatId,
 } from '../shared/html-serializer.js';
-import { DEFAULT_LANG, DEFAULT_THEME } from '../shared/constants.js';
+import { DEFAULT_LANG, themeOf } from '../shared/constants.js';
 import { insertLink } from './lib/editor-actions.js';
 import { analyzeSend } from './lib/send-analysis.js';
 
@@ -75,7 +75,7 @@ function Shell({ lang, onLangChange }) {
     [],
   );
 
-  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || DEFAULT_THEME);
+  const [theme, setTheme] = useState(() => themeOf(localStorage.getItem(THEME_KEY)));
   const [settings, setSettings] = useState(() => ({
     tokenSet: false,
     chatId: '',
@@ -143,7 +143,9 @@ function Shell({ lang, onLangChange }) {
   /* ── persisted preferences ── */
 
   useEffect(() => {
-    document.body.classList.toggle('light', theme === 'light');
+    // The theme answers by attribute; storing the normalized id means the
+    // legacy dark/light spellings upgrade on the very first run.
+    document.body.dataset.theme = theme;
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 

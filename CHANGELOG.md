@@ -1,5 +1,32 @@
 # Changelog
 
+## [5.7.4] - 2026-10-22
+
+### Changed — four palettes, one app
+- **The theme system grew from a toggle into a wardrobe** — Night (the navy
+  the app was built in) is joined by **Black**, a true OLED palette that
+  ends at zero; **Graphite**, Apple's neutral charcoal with the iOS
+  dark-blue as the only accent; and **Day**, Telegram's Day voice on
+  Apple's light grays. A theme is a complete remap of the same token
+  contract, so stylesheets read their look and never care which palette
+  runs; the stored `dark`/`light` spellings upgrade in place
+- **The Settings picker became miniature canvases** — each theme rides a
+  card that paints its own chrome at small scale (title bar, text lines,
+  the round send button), the active palette rings in its accent; the one
+  deliberately expressive piece of the settings sheet, everything around
+  it stays quiet
+
+### Changed — the material Apple would sign
+- **Every dialog, sheet and popover now enters the way it behaves** — the
+  overlay fades with a deeper blur, dialogs and sheets rise 12px and
+  settle on one shared ease, popovers pop like Telegram Desktop's menus,
+  toggled panels fade instead of flickering into place; all of it answers
+  an interaction rather than decorating one, and prefers-reduced-motion
+  collapses the lot
+- Surfaces drop the hard borders where elevation says more: deeper
+  two-stage shadow tokens per palette, per-theme scrollbar tints, tighter
+  optical tracking on dialog and sheet titles
+
 ## [5.7.3] - 2026-10-20
 
 ### Fixed — a saved draft now sends as soon as it loads

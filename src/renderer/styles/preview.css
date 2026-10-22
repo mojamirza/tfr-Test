@@ -9,6 +9,7 @@
   flex-direction: column;
   background: var(--surface);
   min-width: 0;
+  animation: tfr-fade var(--motion-base) var(--ease);
 }
 
 .preview-head {

@@ -1,9 +1,21 @@
 /**
- * Design tokens — Telegram Desktop "Night" palette, modernised.
- * The rich-text composer window in Telegram Desktop is the visual reference,
- * but the language is a step lighter on borders and deeper on layering: ghost
- * buttons on tinted states, hairline surfaces, glass popovers and a single
- * blue send button as the only saturated element.
+ * Design tokens — four palettes on one contract.
+ *
+ * The reference is a reconciliation of Telegram Desktop and macOS: Telegram
+ * supplies the voice (Night's navy, the single saturated blue), Apple the
+ * material (continuous-feel radii, hairlines that breathe per surface,
+ * motions that only answer what the author just did).
+ *
+ * A theme is a complete remap of the SAME variables, so every stylesheet in
+ * the app reads its look from here and nowhere else:
+ *
+ *   night      — Telegram Night, the navy the app was built in (default)
+ *   black      — true OLED: the app goes all the way down to zero
+ *   graphite   — Apple's neutral charcoal, accent is iOS dark-blue
+ *   day        — Telegram Day on Apple's light grays
+ *
+ * Selectors below are attribute-driven (`body[data-theme]`), legacy stored
+ * values (`dark`, `light`) are normalized in App.jsx before they land here.
  */
 
 *,
@@ -23,6 +35,7 @@ body {
   font-size: 14px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 input,
@@ -66,6 +79,15 @@ textarea {
   --success: #64bf7a;
   --warning: #f5a623;
 
+  /* Material — scrollbars, glass and motion ride their own tokens so the
+     four palettes can publish different depths, not just different hues. */
+  --scrollbar: rgba(255, 255, 255, 0.16);
+  --glass: rgba(28, 40, 54, 0.74);
+  --ease: cubic-bezier(0.2, 0.85, 0.25, 1);
+  --motion-fast: 140ms;
+  --motion-base: 180ms;
+  --motion-slow: 260ms;
+
   /* Geometry */
   --titlebar-h: 34px;
   --pill-h: 32px;
@@ -84,22 +106,100 @@ textarea {
   --pop-blur: blur(16px) saturate(1.15);
 }
 
-body.light {
-  --bg: #f2f5f8;
-  --titlebar: #f2f5f8;
-  --surface: #fbfcfe;
-  --surface2: #eceff4;
-  --surface3: #e2e7ee;
+/* ─════════════════════════ black — true OLED ═════════════════════════ */
+
+body[data-theme='black'] {
+  --bg: #000000;
+  --titlebar: #000000;
+  --surface: #07090b;
+  --surface2: #121519;
+  --surface3: #1a1e24;
+  --menu: #14171c;
+  --hover: rgba(255, 255, 255, 0.06);
+  --active: rgba(255, 255, 255, 0.1);
+
+  --outline: rgba(255, 255, 255, 0.08);
+  --outline-strong: rgba(255, 255, 255, 0.15);
+  --border: #121417;
+
+  --text: #ffffff;
+  --icon: #9aa5b1;
+  --text-dim: #7f8993;
+  --text-muted: #6b7580;
+
+  --accent: #3ba0f9;
+  --accent-hover: #58b2fa;
+  --send: #3ba0f9;
+  --send-hover: #58b2fa;
+  --math: #9d8dfd;
+  --danger: #ff6b5e;
+  --success: #57d16a;
+  --warning: #ffb347;
+
+  --scrollbar: rgba(255, 255, 255, 0.12);
+  --glass: rgba(0, 0, 0, 0.8);
+  --ring: color-mix(in srgb, var(--accent) 26%, transparent);
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.55), 0 2px 12px rgba(0, 0, 0, 0.35);
+  --shadow: 0 12px 38px rgba(0, 0, 0, 0.62);
+  --shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.72);
+}
+
+/* ─═══════════════════ graphite — Apple's neutral dark ═══════════════════ */
+
+body[data-theme='graphite'] {
+  --bg: #1a1b1e;
+  --titlebar: #1a1b1e;
+  --surface: #202226;
+  --surface2: #2a2d32;
+  --surface3: #32363c;
+  --menu: #2a2d32;
+  --hover: rgba(255, 255, 255, 0.06);
+  --active: rgba(255, 255, 255, 0.11);
+
+  --outline: rgba(255, 255, 255, 0.09);
+  --outline-strong: rgba(255, 255, 255, 0.16);
+  --border: #26282d;
+
+  --text: #f5f5f7;
+  --icon: #a0a7b2;
+  --text-dim: #8b919c;
+  --text-muted: #767d89;
+
+  --accent: #0a84ff;
+  --accent-hover: #2f96ff;
+  --send: #0a84ff;
+  --send-hover: #2f96ff;
+  --math: #a48bff;
+  --danger: #f4554d;
+  --success: #3fbf6a;
+  --warning: #ffa940;
+
+  --scrollbar: rgba(255, 255, 255, 0.12);
+  --glass: rgba(26, 27, 30, 0.78);
+  --ring: color-mix(in srgb, var(--accent) 24%, transparent);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.24);
+  --shadow: 0 10px 34px rgba(0, 0, 0, 0.48);
+  --shadow-lg: 0 18px 52px rgba(0, 0, 0, 0.55);
+}
+
+/* ─════════════ day — Telegram's Day voice on Apple's light grays ═════════════ */
+
+body[data-theme='day'] {
+  --bg: #f4f6f8;
+  --titlebar: #f4f6f8;
+  --surface: #ffffff;
+  --surface2: #eef1f4;
+  --surface3: #e6eaef;
   --menu: #ffffff;
-  --hover: rgba(15, 30, 50, 0.06);
-  --active: rgba(15, 30, 50, 0.09);
+  --hover: rgba(16, 32, 54, 0.055);
+  --active: rgba(16, 32, 54, 0.09);
 
-  --outline: rgba(15, 30, 50, 0.11);
-  --outline-strong: rgba(15, 30, 50, 0.2);
-  --border: #dfe5ea;
+  --outline: rgba(16, 32, 54, 0.1);
+  --outline-strong: rgba(16, 32, 54, 0.18);
+  --border: #e4e8ee;
 
-  --text: #14181c;
-  --icon: #66737f;
+  --text: #17212b;
+  --icon: #6c7885;
   --text-dim: #707d8b;
   --text-muted: #8c98a4;
 
@@ -109,11 +209,15 @@ body.light {
   --send-hover: #4c9ef0;
   --math: #6f5ce6;
   --danger: #e0483d;
-  --success: #4dbf6a;
-  --ring: color-mix(in srgb, #3390ec 20%, transparent);
-  --shadow-sm: 0 1px 3px rgba(20, 40, 60, 0.1), 0 2px 10px rgba(20, 40, 60, 0.06);
-  --shadow: 0 10px 34px rgba(20, 40, 60, 0.18);
-  --shadow-lg: 0 18px 52px rgba(20, 40, 60, 0.22);
+  --success: #35ad55;
+  --warning: #e69b1e;
+
+  --scrollbar: rgba(16, 32, 54, 0.16);
+  --glass: rgba(244, 246, 248, 0.82);
+  --ring: color-mix(in srgb, var(--accent) 20%, transparent);
+  --shadow-sm: 0 1px 3px rgba(24, 40, 60, 0.09), 0 2px 10px rgba(24, 40, 60, 0.05);
+  --shadow: 0 12px 32px rgba(24, 40, 60, 0.14);
+  --shadow-lg: 0 22px 54px rgba(24, 40, 60, 0.18);
 }
 
 body {
@@ -123,6 +227,7 @@ body {
   flex-direction: column;
   height: 100dvh;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #root {
@@ -142,21 +247,57 @@ body {
   background: color-mix(in srgb, var(--accent) 32%, transparent);
 }
 
-/* Thin Telegram-style scrollbars */
+/* Thin Telegram-style scrollbars, tuned per palette. */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
-  border-radius: 3px;
+  background: var(--scrollbar);
+  border-radius: 4px;
 }
 
-body.light ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.18);
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--scrollbar) 65%, var(--text-muted));
 }
 
 ::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ─═══════════ Motion — only what answers an author's action ════════════ */
+
+/* Surfaces rise and settle instead of teleporting: overlays fade, dialogs
+   and sheets drift up 12px with a settle, popovers pop the same way menus
+   in Telegram Desktop do. Everything obeys prefers-reduced-motion. */
+
+@keyframes tfr-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.985);
+  }
+}
+
+@keyframes tfr-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.965);
+  }
+}
+
+@keyframes tfr-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }

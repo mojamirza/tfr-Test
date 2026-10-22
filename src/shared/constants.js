@@ -18,8 +18,27 @@ export const MAX_RESPONSE_BYTES = 1048576;
 /** Default language code. */
 export const DEFAULT_LANG = 'en';
 
-/** Default theme. */
-export const DEFAULT_THEME = 'dark';
+/**
+ * The four palettes of the theme system — one shared token contract, four
+ * remaps. The order is the theme cards' order in Settings.
+ */
+export const THEME_IDS = ['night', 'black', 'graphite', 'day'];
+
+/** Default theme id. */
+export const DEFAULT_THEME = 'night';
+
+/**
+ * Normalize a stored theme id. Two legacy spellings predate the four-theme
+ * system and map onto their closest palette: the old boolean pair
+ * `dark`/`light` become `night`/`day`; anything unknown falls to the default.
+ * @param {string} stored
+ * @returns {string} one of THEME_IDS
+ */
+export function themeOf(stored) {
+  if (stored === 'dark') return 'night';
+  if (stored === 'light') return 'day';
+  return THEME_IDS.includes(stored) ? stored : DEFAULT_THEME;
+}
 
 /** Supported languages. */
 export const SUPPORTED_LANGS = ['en', 'fa'];

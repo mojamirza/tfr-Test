@@ -17,8 +17,65 @@ const DEFAULT_PROXY_FORM = {
   username: '',
   hasPassword: false,
 };
+import { THEME_IDS } from '../../shared/constants.js';
 import { CloseIcon } from './Icons.jsx';
 import { useI18n } from '../i18n/index.js';
+
+/**
+ * One palette previewed literally: a miniature of the chrome each theme
+ * paints — title bar, two text lines and the round send button. The card
+ * does not read the live tokens (that would only preview the running
+ * theme); it carries the four palettes' own surface and accent values.
+ *
+ * @param {{ id: string }} props
+ */
+function ThemeCard({ id }) {
+  const { t } = useI18n();
+  const swatch = THEME_SWATCHES[id];
+  return (
+    <>
+      <span className="theme-card-surface" style={{ background: swatch.bg }} aria-hidden="true">
+        <span className="theme-card-bar" style={{ background: swatch.titlebar }} />
+        <span className="theme-card-line" style={{ background: swatch.text }} />
+        <span className="theme-card-line short" style={{ background: swatch.faint }} />
+        <span className="theme-card-fab" style={{ background: swatch.accent }} />
+      </span>
+      <span className="theme-card-name">{t(`settings.theme.${id}`)}</span>
+    </>
+  );
+}
+
+/** The literal palette values the previews paint — kept beside the tokens. */
+const THEME_SWATCHES = {
+  night: {
+    bg: '#17212b',
+    titlebar: '#253140',
+    text: 'rgba(255, 255, 255, 0.75)',
+    faint: 'rgba(255, 255, 255, 0.3)',
+    accent: '#4ea4f6',
+  },
+  black: {
+    bg: '#07090b',
+    titlebar: '#14171c',
+    text: 'rgba(255, 255, 255, 0.75)',
+    faint: 'rgba(255, 255, 255, 0.28)',
+    accent: '#3ba0f9',
+  },
+  graphite: {
+    bg: '#202226',
+    titlebar: '#2a2d32',
+    text: 'rgba(245, 245, 247, 0.72)',
+    faint: 'rgba(245, 245, 247, 0.28)',
+    accent: '#0a84ff',
+  },
+  day: {
+    bg: '#ffffff',
+    titlebar: '#eef1f4',
+    text: 'rgba(23, 33, 43, 0.72)',
+    faint: 'rgba(23, 33, 43, 0.26)',
+    accent: '#3390ec',
+  },
+};
 
 /**
  * @param {{
@@ -363,15 +420,27 @@ export default function Settings({
               </select>
             </div>
             <div className="sheet-field">
-              <label htmlFor="set-theme">{t('settings.theme')}</label>
-              <select
-                id="set-theme"
-                value={theme}
-                onChange={(event) => onThemeChange(event.target.value)}
+              <span className="sheet-label" id="theme-label">
+                {t('settings.theme')}
+              </span>
+              <div
+                className="theme-picker"
+                role="radiogroup"
+                aria-labelledby="theme-label"
               >
-                <option value="dark">{t('settings.themeDark')}</option>
-                <option value="light">{t('settings.themeLight')}</option>
-              </select>
+                {THEME_IDS.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={id === theme}
+                    className={`theme-card${id === theme ? ' active' : ''}`}
+                    onClick={() => onThemeChange(id)}
+                  >
+                    <ThemeCard id={id} />
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
