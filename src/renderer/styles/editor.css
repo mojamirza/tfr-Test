@@ -164,6 +164,29 @@
   margin: 6px 0;
 }
 
+/* The wire's five ordered marker styles — the node renders the real
+   `type` attribute, which the browser shows natively; declared here too so
+   the composing surface is explicit about what it mirrors. */
+.tfr-editor ol[type='1'] {
+  list-style-type: decimal;
+}
+
+.tfr-editor ol[type='a'] {
+  list-style-type: lower-alpha;
+}
+
+.tfr-editor ol[type='A'] {
+  list-style-type: upper-alpha;
+}
+
+.tfr-editor ol[type='i'] {
+  list-style-type: lower-roman;
+}
+
+.tfr-editor ol[type='I'] {
+  list-style-type: upper-roman;
+}
+
 .tfr-editor li {
   margin: 2px 0;
 }

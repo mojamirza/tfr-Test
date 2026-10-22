@@ -1302,13 +1302,26 @@ export const ListAttributes = Extension.create({
         attributes: {
           listType: {
             default: '',
-            parseHTML: (el) => el.getAttribute('data-list-type') || '',
-            renderHTML: (attrs) => (attrs.listType ? { 'data-list-type': attrs.listType } : {}),
+            // The marker style rides `data-list-type` in the editor dialect
+            // and the bare `type` on the wire — accept both, so editing a
+            // sent message keeps the style the message carries.
+            parseHTML: (el) => el.getAttribute('data-list-type') || el.getAttribute('type') || '',
+            renderHTML: (attrs) => {
+              if (!attrs.listType) return {};
+              // Render the wire's own `type` attribute too: the browser's
+              // UA rules for `ol[type]` are what make the a/A/i/I markers
+              // visible on the composing surface, exactly like Telegram's.
+              return { type: attrs.listType, 'data-list-type': attrs.listType };
+            },
           },
           value: {
+            // Per-item explicit numbers: `data-value` in the editor dialect,
+            // the bare `value` on the wire — accept both, and render both,
+            // since the browser honors `li value` for its own markers.
             default: 0,
-            parseHTML: (el) => parseInt(el.getAttribute('data-value'), 10) || 0,
-            renderHTML: (attrs) => (attrs.value > 0 ? { 'data-value': String(attrs.value) } : {}),
+            parseHTML: (el) => parseInt(el.getAttribute('data-value') ?? el.getAttribute('value'), 10) || 0,
+            renderHTML: (attrs) =>
+              attrs.value > 0 ? { value: String(attrs.value), 'data-value': String(attrs.value) } : {},
           },
         },
       },
@@ -1316,9 +1329,17 @@ export const ListAttributes = Extension.create({
         types: ['orderedList'],
         attributes: {
           reversed: {
+            // The direction rides `data-reversed` in the editor dialect and
+            // the bare `reversed` attribute on the wire — accept both, so
+            // editing a sent message keeps counting downward.
             default: false,
-            parseHTML: (el) => el.hasAttribute('data-reversed'),
-            renderHTML: (attrs) => (attrs.reversed ? { 'data-reversed': '' } : {}),
+            parseHTML: (el) => el.hasAttribute('data-reversed') || el.hasAttribute('reversed'),
+            renderHTML: (attrs) => {
+              if (!attrs.reversed) return {};
+              // The bare `reversed` attribute is what makes the browser's
+              // own markers count down on the composing surface.
+              return { reversed: '', 'data-reversed': '' };
+            },
           },
         },
       },

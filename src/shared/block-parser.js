@@ -232,8 +232,8 @@ function parseList(el) {
   // reversed direction and per-item explicit values. They are only added when
   // set, so the plain `{ text }` item shape is unchanged in the common case.
   const startAttr = parseInt(el.getAttribute('start'), 10);
-  const listType = (el.getAttribute('data-list-type') || '').trim();
-  const reversed = el.hasAttribute('data-reversed');
+  const listType = (el.getAttribute('data-list-type') || el.getAttribute('type') || '').trim();
+  const reversed = el.hasAttribute('data-reversed') || el.hasAttribute('reversed');
 
   return {
     type: BlockType.LIST,

@@ -153,6 +153,28 @@
   font-size: 12.5px;
 }
 
+/* The ordered marker styles the wire carries in `type`, shown by the
+   browser natively — declared so the preview mirrors the composer's rules. */
+.bubble ol[type='1'] {
+  list-style-type: decimal;
+}
+
+.bubble ol[type='a'] {
+  list-style-type: lower-alpha;
+}
+
+.bubble ol[type='A'] {
+  list-style-type: upper-alpha;
+}
+
+.bubble ol[type='i'] {
+  list-style-type: lower-roman;
+}
+
+.bubble ol[type='I'] {
+  list-style-type: upper-roman;
+}
+
 .bubble th,
 .bubble td {
   border: 1px solid var(--outline);

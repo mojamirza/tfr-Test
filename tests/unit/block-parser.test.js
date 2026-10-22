@@ -100,16 +100,27 @@ describe('parseBlockElement', () => {
   });
 
   it('reads ordered-list extras: start, marker type, reversed and item values', () => {
-    const result = parseBlockElement(
+    const editorForm = parseBlockElement(
       el(
         '<ol start="3" data-list-type="A" data-reversed>' +
           '<li data-value="7">Seven</li><li>Six</li></ol>',
       ),
     );
-    expect(result.start).toBe(3);
-    expect(result.listType).toBe('A');
-    expect(result.reversed).toBe(true);
-    expect(result.items).toEqual([{ text: 'Seven', value: 7 }, { text: 'Six' }]);
+    expect(editorForm.listType).toBe('A');
+    expect(editorForm.reversed).toBe(true);
+
+    // The wire dialect carries the same three as bare attributes — the
+    // inspector parses sent messages, so both forms must answer.
+    const wireForm = parseBlockElement(
+      el(
+        '<ol start="3" type="A" reversed>' +
+          '<li value="7">Seven</li><li>Six</li></ol>',
+      ),
+    );
+    expect(wireForm.listType).toBe('A');
+    expect(wireForm.reversed).toBe(true);
+    expect(editorForm.start).toBe(3);
+    expect(editorForm.items).toEqual([{ text: 'Seven', value: 7 }, { text: 'Six' }]);
   });
 
   it('parses details', () => {

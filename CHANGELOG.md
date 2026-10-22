@@ -22,6 +22,27 @@
   await must exist on the app's real ctx), so a missing helper can no
   longer hide behind the mock ctxs of the unit tests
 
+### Fixed — the window shows what the wire carries
+- **Ordered marker styles were invisible on the composing surface** — the
+  editor spelled the style `data-list-type`, and only the serializer
+  translated it into the wire's `type` on the way out: a list sent as
+  `a A i I` came back from the picker with correct markers in the message
+  but dull decimal ones in the window. The node now renders the real
+  `type` attribute (declared in both themes' CSS), and the preview already
+  mirrored the style — picked markers appear in the composer the moment
+  they are chosen, exactly like Telegram's
+- **Reversed direction and per-item numbers round-trip and render** — the
+  same both-dialects pair: the node parses the wire's bare `reversed` and
+  `value` when a sent message is loaded for editing (they used to drop),
+  and renders them so the browser's own markers count down and jump to
+  explicit item numbers inside the window
+- **The confirm dialog's "Clear" button was red on red** — the quiet
+  danger text-button rule came later in the cascade than the primary
+  fill's white text and won it: the Clear (and Delete-draft) confirm
+  buttons painted red letters on the red fill, readable as silence. The
+  saturated fill keeps its white text now; the red font stays on the quiet
+  "Remove …" buttons
+
 ### Added — the wait for borderless tables is over
 - **Borderless tables** — Telegram's Rich HTML carries two table forms and
   the wire only ever emitted one. The table Layout popover gains a

@@ -616,6 +616,13 @@
   color: var(--danger);
 }
 
+/* The saturated danger fill keeps its white text — the red font above is
+   for the quiet text-button variant ("Remove …"); on the confirm button it
+   paints red on red, which reads as nothing at all. */
+.dialog-btn.primary.danger {
+  color: #fff;
+}
+
 .dialog-btn.block {
   width: 100%;
   margin-top: 8px;
