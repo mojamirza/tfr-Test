@@ -63,9 +63,12 @@ export default function BottomBar({
     (action) => {
       setPaletteOpen(false);
       if (!editor) return;
-      Promise.resolve(action.run(editor, ctx)).catch(() =>
-        ctx.notify('toast.networkError', 'error'),
-      );
+      Promise.resolve(action.run(editor, ctx)).catch((e) => {
+        // Same discipline as the toolbar: the author sees the toast, the
+        // console keeps the real reason (a missing ctx key, a bad chain).
+        console.error('[Action]', action.id || action.i18nKey, e);
+        ctx.notify('toast.networkError', 'error');
+      });
     },
     [editor, ctx],
   );

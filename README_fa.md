@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" alt="React 19">
   <img src="https://img.shields.io/badge/TipTap-2-8b5cf6" alt="TipTap 2">
-  <img src="https://img.shields.io/badge/tests-464%20passing-4fc3a1" alt="۴۶۴ تست">
+  <img src="https://img.shields.io/badge/tests-465%20passing-4fc3a1" alt="۴۶۵ تست">
   <img src="https://img.shields.io/badge/license-MIT-8b99a7" alt="MIT">
 </p>
 
@@ -361,7 +361,7 @@ Renderer (React)                     پردازشگر Main (Electron)
 
 ```bash
 npm run dev           # Vite + Electron با هات‌ریلود
-npm test              # ۴۶۴ تست واحد (Vitest)
+npm test              # ۴۶۵ تست واحد (Vitest)
 npm run lint          # ESLint، بدون هشدار
 npm run format        # Prettier
 npm run build         # ویندوز: dist/TelegramFreeRich-Setup-5.4.0.exe و …-portable.exe
@@ -412,7 +412,7 @@ src/
     ├── constants.js            محدودیت‌ها و پیش‌فرض‌ها
     └── utils.js                sanitizeUrl، اعتبارسنجی، ابزارها
 
-tests/unit/                     ۴۶۴ تست — سریالایزر HTML، پروکسی، بسته‌بندی، مستندات، پارسرها،
+tests/unit/                     ۴۶۵ تست — سریالایزر HTML، پروکسی، بسته‌بندی، مستندات، پارسرها،
                                 یکسانی i18n، استایل‌ها، اعتبارسنجی
 ```
 

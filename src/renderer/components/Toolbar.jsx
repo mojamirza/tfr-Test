@@ -125,9 +125,12 @@ export default function Toolbar({ editor, ctx, onPublishOptions }) {
     (action) => {
       close();
       if (!editor) return;
-      Promise.resolve(action.run(editor, ctx)).catch(() =>
-        ctx.notify('toast.networkError', 'error'),
-      );
+      Promise.resolve(action.run(editor, ctx)).catch((e) => {
+        // The toast is for the author; the console line is for the bug
+        // report — a wiring typo must not hide as a bare "network error".
+        console.error('[Action]', action.id || action.i18nKey, e);
+        ctx.notify('toast.networkError', 'error');
+      });
     },
     [editor, ctx, close],
   );

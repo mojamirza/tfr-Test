@@ -11,6 +11,16 @@
   Loading now mirrors the editor's document state by hand
   (`mirrorEditorState`), so the very next Send sends exactly what the
   draft shows
+- **The marker-style picker opened nothing and toasted "Network error"** —
+  the picker dialog traveled from the actions registry through the action
+  `ctx`, and the app's single `ctx` line-up predated it: `ctx.askChoice`
+  resolved to `undefined`, the await threw, and the action wrapper's
+  catch-all turned the TypeError into the misleading network toast. The
+  helper is wired now, the two action runners log the real error to the
+  console beside the author-facing toast, and the wiring guard test
+  derives its contract from the action source (every `ctx.*` the actions
+  await must exist on the app's real ctx), so a missing helper can no
+  longer hide behind the mock ctxs of the unit tests
 
 ### Added — the wait for borderless tables is over
 - **Borderless tables** — Telegram's Rich HTML carries two table forms and

@@ -39,6 +39,7 @@ const CTX_HELPERS = [
   'askButtons',
   'askInlineButton',
   'askCodeLanguage',
+  'askChoice',
   'askMap',
   'askDetails',
   'confirm',
@@ -58,13 +59,28 @@ describe('App.jsx', () => {
 
   it('wires the action ctx with every dialog helper the actions call', () => {
     // The registry reaches ctx.askText/askLink/askButtons/askInlineButton/
-    // askCodeLanguage/askMap/askDetails/confirm — a helper missing here is a
-    // feature that opens no dialog and merely toasts "network error" on click.
-    // Some actions are also exercised with a mock ctx in editor-actions tests,
-    // which cannot catch a missing wire-up — hence these static assertions.
+    // askCodeLanguage/askChoice/askMap/askDetails/confirm — a helper missing
+    // here is a feature that opens no dialog and merely toasts "network
+    // error" on click. Some actions are also exercised with a mock ctx in
+    // editor-actions tests, which cannot catch a missing wire-up — hence
+    // these static assertions.
     expect(ctxBlock).not.toBe('');
     for (const helper of CTX_HELPERS) {
       expect(ctxBlock, `ctx helper ${helper}`).toContain(helper);
+    }
+  });
+
+  it('wires every ctx.* helper the action source actually awaits', () => {
+    // The fixed list above guards a known contract; this one derives the
+    // contract from the actions themselves, so a new `ctx.askX` call site
+    // fails here before it fails in the window.
+    expect(ctxBlock).not.toBe('');
+    const used = [...new Set(actionsSource.match(/\bctx\.\w+/g) || [])].map(
+      (ref) => ref.slice('ctx.'.length),
+    );
+    expect(used.length).toBeGreaterThan(0);
+    for (const helper of used) {
+      expect(ctxBlock, `ctx.* ${helper} used by the actions`).toContain(helper);
     }
   });
 });
