@@ -8,11 +8,12 @@
   z-index: 300;
   min-width: 210px;
   max-width: min(360px, calc(100vw - 16px));
-  background: color-mix(in srgb, var(--menu) 88%, transparent);
+  background: linear-gradient(var(--glass-tint), var(--glass-tint)),
+    var(--glass-panel);
   backdrop-filter: var(--pop-blur);
   border: 1px solid var(--outline);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow);
+  box-shadow: var(--glass-shadows), var(--shadow);
   padding: 6px;
   transition: opacity 0.1s ease-out;
   animation: tfr-pop var(--motion-fast) var(--ease);
@@ -198,11 +199,12 @@
   align-items: center;
   gap: 2px;
   padding: 4px;
-  background: color-mix(in srgb, var(--menu) 88%, transparent);
+  background: linear-gradient(var(--glass-tint), var(--glass-tint)),
+    var(--glass-panel);
   backdrop-filter: var(--pop-blur);
   border: 1px solid var(--outline);
   border-radius: 999px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--glass-shadows), var(--shadow);
 }
 
 .table-bubble-icon {
@@ -257,11 +259,12 @@
   inset-inline-start: 0;
   min-width: 260px;
   padding: 12px;
-  background: color-mix(in srgb, var(--menu) 90%, transparent);
+  background: linear-gradient(var(--glass-tint), var(--glass-tint)),
+    var(--glass-panel);
   backdrop-filter: var(--pop-blur);
   border: 1px solid var(--outline);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow);
+  box-shadow: var(--glass-shadows), var(--shadow);
   z-index: 30;
 }
 

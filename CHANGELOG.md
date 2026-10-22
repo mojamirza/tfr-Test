@@ -1,5 +1,27 @@
 # Changelog
 
+## [5.7.5] - 2026-10-22
+
+### Added — Liquid Glass, tinted
+
+- **The chrome went glass.** The top bar, the formatting strip and the
+  bottom bar now render Apple's iOS 26 Liquid-Glass material: a translucent
+  face carrying the running palette's accent tint, the top specular light
+  with a faint bend around the other three edges, and the hairline where
+  the fascia meets the content. Where nothing sits behind the strips the
+  tint and light carry the material; where panels float, the blur does
+  real refractive work
+- **Every floating surface joined it** — dialogs, sheets, the crash card,
+  send-mode and insert menus, the table bubble and its layout popover, and
+  toasts are glass over the blurred workspace, one shared specular stack so
+  they all read as a single material rather than adjacent tricks; the
+  backdrop gained blur(28px) with a saturation lift, per the skill's own
+  palette notes
+- Content surfaces stay deliberately solid (editor, inspector, preview,
+  inputs): glass is reserved for chrome and floats, per the liquid-glass
+  material rules — text-on-glass readability intact in all four palettes,
+  the Day glass on white verified against its ink contrast
+
 ## [5.7.4] - 2026-10-22
 
 ### Changed — four palettes, one app

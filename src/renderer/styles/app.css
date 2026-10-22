@@ -8,7 +8,12 @@
   display: flex;
   align-items: center;
   height: var(--titlebar-h);
-  background: var(--bg);
+  /* Liquid Glass, tinted by whichever palette runs: the accent wash rides
+     on top of the translucent face, and the specular inset lays the top
+     light with the faint bend around the other three edges. */
+  background: linear-gradient(var(--glass-tint), var(--glass-tint)),
+    var(--glass-face);
+  box-shadow: var(--glass-shadows);
   border-bottom: 1px solid var(--outline);
   flex-shrink: 0;
   padding-inline-start: 8px;
@@ -302,7 +307,10 @@
   align-items: center;
   gap: 10px;
   padding: 12px 18px 14px;
-  background: var(--bg);
+  background: linear-gradient(var(--glass-tint), var(--glass-tint)),
+    var(--glass-face);
+  box-shadow: var(--glass-shadows);
+  border-top: 1px solid var(--outline);
   flex-shrink: 0;
 }
 
@@ -415,10 +423,14 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: var(--menu);
+  /* Floating glass — the thick face refracts the blurred workspace that
+     the dim overlay leaves behind. */
+  background: linear-gradient(var(--glass-tint), var(--glass-tint)),
+    var(--glass-panel);
+  backdrop-filter: var(--pop-blur);
   border: 1px solid var(--outline);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--glass-shadows), var(--shadow-lg);
   animation: tfr-enter var(--motion-base) var(--ease);
 }
 
@@ -634,10 +646,12 @@
 .dialog {
   width: 380px;
   max-width: 100%;
-  background: var(--menu);
+  background: linear-gradient(var(--glass-tint), var(--glass-tint)),
+    var(--glass-panel);
+  backdrop-filter: var(--pop-blur);
   border: 1px solid var(--outline);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--glass-shadows), var(--shadow-lg);
   padding: 18px;
   animation: tfr-enter var(--motion-base) var(--ease);
 }
@@ -1023,11 +1037,12 @@
   padding: 8px 15px;
   border-radius: 11px;
   font-size: 12.5px;
-  background: color-mix(in srgb, var(--surface3) 86%, transparent);
+  background: linear-gradient(var(--glass-tint), var(--glass-tint)),
+    var(--glass-panel);
   backdrop-filter: var(--pop-blur);
   border: 1px solid var(--outline);
   color: var(--text);
-  box-shadow: var(--shadow);
+  box-shadow: var(--glass-shadows), var(--shadow);
   animation: tfr-pop var(--motion-fast) var(--ease);
 }
 
@@ -1185,10 +1200,12 @@
 .crash-card {
   width: 420px;
   max-width: 100%;
-  background: var(--menu);
+  background: linear-gradient(var(--glass-tint), var(--glass-tint)),
+    var(--glass-panel);
+  backdrop-filter: var(--pop-blur);
   border: 1px solid var(--danger);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--glass-shadows), var(--shadow-lg);
   padding: 20px;
 }
 

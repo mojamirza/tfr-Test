@@ -17,10 +17,11 @@
   gap: 4px;
   margin: 10px 12px 0;
   padding: 5px 8px 6px;
-  background: var(--surface2);
+  background: linear-gradient(var(--glass-tint), var(--glass-tint)),
+    var(--glass-face);
   border: 1px solid var(--outline);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--glass-shadows), var(--shadow-sm);
   flex-shrink: 0;
 }
 
