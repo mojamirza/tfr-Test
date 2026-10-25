@@ -2,6 +2,8 @@
  * Settings — bot token, chat ID, edit target, language and theme.
  * The token is written straight to the main process (OS-encrypted) and is never
  * held in renderer state; the panel only ever knows whether one exists.
+ * The chat-ID list is the renderer's own: a small, locally persisted history
+ * of the IDs already used, so switching targets is a click, not a retype.
  *
  * @module components/Settings
  */
@@ -17,6 +19,10 @@ const DEFAULT_PROXY_FORM = {
   username: '',
   hasPassword: false,
 };
+
+/** The locally persisted chat-ID history, and how many it may hold. */
+const SAVED_CHATS_KEY = 'tfr-saved-chats';
+const SAVED_CHATS_MAX = 12;
 import { THEME_IDS } from '../../shared/constants.js';
 import { CloseIcon } from './Icons.jsx';
 import { useI18n } from '../i18n/index.js';
@@ -111,6 +117,10 @@ export default function Settings({
   const [proxyPassword, setProxyPassword] = useState('');
   const [proxyStatus, setProxyStatus] = useState({ text: '', type: '' });
   const [checkingProxy, setCheckingProxy] = useState(false);
+  // The saved chat-ID chips — plain localStorage, updated at once: they are
+  // not part of the form's own "Save" payload, so closing the panel without
+  // saving never loses a chip change either way.
+  const [savedChats, setSavedChats] = useState([]);
 
   // Read through a ref so the effect below can fill the form from the current
   // settings without re-running every time they change.
@@ -133,9 +143,35 @@ export default function Settings({
     setProxyStatus({ text: '', type: '' });
     setProxyPassword('');
     setProxy({ ...DEFAULT_PROXY_FORM, ...(current.proxy || {}) });
+    try {
+      const saved = JSON.parse(localStorage.getItem(SAVED_CHATS_KEY) || '[]');
+      setSavedChats(Array.isArray(saved) ? saved.filter((id) => typeof id === 'string' && id) : []);
+    } catch {
+      setSavedChats([]);
+    }
   }, [open]);
 
   if (!open) return null;
+
+  /** Replace the chip list in state and on disk in one move. */
+  function updateSavedChats(list) {
+    setSavedChats(list);
+    try {
+      localStorage.setItem(SAVED_CHATS_KEY, JSON.stringify(list));
+    } catch {
+      // Quota — the chips stay for the session only.
+    }
+  }
+
+  /** A chip click loads the ID into the chat field. */
+  function pickSavedChat(id) {
+    setChatId(id);
+  }
+
+  /** The chip's ✕ — gone from the list and the storage at once. */
+  function removeSavedChat(id) {
+    updateSavedChats(savedChats.filter((saved) => saved !== id));
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -153,6 +189,12 @@ export default function Settings({
         setStatus({ text: result.description || t('toast.networkError'), type: 'error' });
         setSaving(false);
         return;
+      }
+      // A used chat ID joins the saved list automatically — trimmed,
+      // deduplicated, newest keeps its old place and the list is capped.
+      const used = chatId.trim();
+      if (used) {
+        updateSavedChats([...savedChats.filter((saved) => saved !== used), used].slice(-SAVED_CHATS_MAX));
       }
       onSaved({
         tokenSet: !!token || settings.tokenSet,
@@ -276,6 +318,38 @@ export default function Settings({
             placeholder={t('settings.chatIdPlaceholder')}
             autoComplete="off"
           />
+
+          {savedChats.length > 0 && (
+            /* One click switches target — no delete-one-type-the-other round
+               trip. The ✕ prunes the list; "Save" appends whatever the field
+               then holds, so a fresh ID is remembered by the same action. */
+            <div className="chat-chips">
+              <span className="chat-chips-label">{t('settings.savedChats')}</span>
+              <div className="chat-chips-row">
+                {savedChats.map((id) => (
+                  <span key={id} className="chat-chip">
+                    <button
+                      type="button"
+                      className="chat-chip-id"
+                      title={t('settings.savedChatsUse')}
+                      onClick={() => pickSavedChat(id)}
+                    >
+                      {id}
+                    </button>
+                    <button
+                      type="button"
+                      className="chat-chip-x"
+                      aria-label={t('settings.savedChatsRemove')}
+                      title={t('settings.savedChatsRemove')}
+                      onClick={() => removeSavedChat(id)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           <label htmlFor="set-edit">{t('settings.editId')}</label>
           <input

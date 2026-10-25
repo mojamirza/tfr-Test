@@ -1,5 +1,29 @@
 # Changelog
 
+## [5.7.8] - 2026-10-25
+
+### Added — a chat-ID history and a scheduler
+
+- **Saved chat IDs.** The chat-ID field in Settings keeps a history: every
+  ID that survives a *Save* joins a chip list under the field — click a
+  chip to load it, ✕ to prune it. No more delete-one-and-type-the-other
+  round trip. The list lives in localStorage (capped at twelve, newest
+  kept) and survives restarts
+- **Scheduled messages, like Telegram's send options.** Right-click the
+  send button and pick **Schedule…**: a date and time panel (native
+  calendar + clock pickers, checked against the clock before it closes —
+  a queued entry is never a past one), then the message is validated with
+  the exact send plan and leaves the composer into the queue
+- **The local queue is honest about what the Bot API can do.** No send
+  method through API 10.3 carries a `schedule_date` (verified against the
+  live method pages and the full changelog), so — like Telegram's own
+  clients — the queue is local: entries persist across restarts, fire
+  while the app runs, oldest first, and a failed send stays queued to
+  face the next tick
+- **Scheduled queue sheet.** From the same send menu: every queued entry
+  with its due time, target chat and first words — **send now**, retry or
+  drop an entry
+
 ## [5.7.7] - 2026-10-22
 
 ### Added — the formula editor typesets as you type

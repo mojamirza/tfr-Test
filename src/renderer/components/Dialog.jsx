@@ -9,6 +9,7 @@
  *   askInlineButton({ …button, existing })     → Promise<button|null|{removed:true}>
  *   askCodeLanguage({ value })                 → Promise<string|null>
  *   askFormula({ titleKey, placeholder, value }) → Promise<string|null>
+ *   askSchedule({ value? })                    → Promise<{ date, time, at }|null>
  *   askChoice({ titleKey, current, options })  → Promise<string|null>
  *   askMap({ …map fields, existing })          → Promise<map|null|{removed:true}>
  *   askDetails({ summary, open, existing })    → Promise<{summary, open}|null>
@@ -22,6 +23,7 @@ import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { BUTTON_KINDS, BUTTON_STYLES, validMapSize } from '../../shared/html-serializer.js';
 import { parseCoords } from '../lib/editor-actions.js';
+import { parseScheduleDateTime } from '../../shared/schedule.js';
 import { useI18n } from '../i18n/index.js';
 
 const DialogContext = createContext(null);
@@ -35,6 +37,7 @@ const DialogContext = createContext(null);
  *   askInlineButton: (opts?: object) => Promise<object|null>,
  *   askCodeLanguage: (opts?: object) => Promise<string|null>,
  *   askFormula: (opts?: object) => Promise<string|null>,
+ *   askSchedule: (opts?: object) => Promise<object|null>,
  *   askMap: (opts?: object) => Promise<object|null>,
  *   askDetails: (opts?: object) => Promise<object|null>,
  *   confirm: (opts?: object) => Promise<boolean>,
@@ -104,6 +107,7 @@ const TITLE_KEYS = {
   code: 'dialog.codeTitle',
   map: 'dialog.mapTitle',
   details: 'dialog.detailsTitle',
+  schedule: 'dialog.scheduleTitle',
 };
 
 /**
@@ -232,6 +236,9 @@ export function DialogProvider({ children }) {
   const [btnSingle, setBtnSingle] = useState(null);
   const [codePick, setCodePick] = useState(null);
   const [formulaText, setFormulaText] = useState('');
+  const [schedDate, setSchedDate] = useState('');
+  const [schedTime, setSchedTime] = useState('');
+  const [schedError, setSchedError] = useState(null);
   const [mapFields, setMapFields] = useState(null);
   const [detailsFields, setDetailsFields] = useState(null);
   const firstFieldRef = useRef(null);
@@ -327,6 +334,26 @@ export function DialogProvider({ children }) {
   );
 
   /**
+   * The scheduler's date-time panel — the local queue's entry point,
+   * staged like Telegram's own send-options. The due moment is checked
+   * against the clock before the panel closes, so a queued entry is
+   * never a past one. Resolves `{ date, time, at }`, `at` in Unix
+   * seconds.
+   */
+  const askSchedule = useCallback(
+    (options = {}) =>
+      new Promise((resolve) => {
+        // Reopen with a caller's existing moment? No — a queue entry is
+        // re-dated by re-queuing, so the panel always starts fresh.
+        setSchedDate('');
+        setSchedTime('');
+        setSchedError(null);
+        setDialog({ kind: 'schedule', options, resolve });
+      }),
+    [],
+  );
+
+  /**
    * A pick-one list — the documented marker styles ride it today. The rows
    * carry `{ value, labelKey }`; the current value is highlighted and the
    * first click picks it, the way a Telegram radio row behaves.
@@ -383,6 +410,9 @@ export function DialogProvider({ children }) {
       setBtnSingle(null);
       setCodePick(null);
       setFormulaText('');
+      setSchedDate('');
+      setSchedTime('');
+      setSchedError(null);
       setMapFields(null);
       setDetailsFields(null);
     },
@@ -439,6 +469,16 @@ export function DialogProvider({ children }) {
       // open until the source has content, exactly like the link dialog does.
       if (!formulaText.trim()) return;
       finish(formulaText);
+    } else if (dialog.kind === 'schedule') {
+      // The clock check runs here, not at fire time: a queued entry must
+      // be future-dated from the moment it is queued. The dialog stays
+      // open with the reason inline.
+      const parsed = parseScheduleDateTime(schedDate, schedTime);
+      if (!parsed.ok) {
+        setSchedError(parsed.reason);
+        return;
+      }
+      finish({ date: schedDate, time: schedTime, at: parsed.at });
     } else if (dialog.kind === 'code') {
       // The query doubles as the value: pick from the list, or type a custom
       // identifier Telegram accepts. Lowercase — `language-Python` and
@@ -506,7 +546,7 @@ export function DialogProvider({ children }) {
 
   return (
     <DialogContext.Provider
-      value={{ askText, askLink, askButtons, askInlineButton, askCodeLanguage, askFormula, askChoice, askMap, askDetails, confirm }}
+      value={{ askText, askLink, askButtons, askInlineButton, askCodeLanguage, askFormula, askSchedule, askChoice, askMap, askDetails, confirm }}
     >
       {children}
 
@@ -745,6 +785,49 @@ export function DialogProvider({ children }) {
                     <span className="formula-preview-empty">{t('dialog.formulaAwait')}</span>
                   )}
                 </div>
+              </div>
+            )}
+
+            {dialog.kind === 'schedule' && (
+              /* Two native pickers — the browser supplies a real calendar
+                 and a real clock strip, and the values arrive always in
+                 `YYYY-MM-DD` / `HH:MM`. Both sit LTR even in the Persian
+                 interface: a date-time reads left-to-right everywhere. */
+              <div className="dialog-fields">
+                <div className="sched-pickers" dir="ltr">
+                  <div className="sched-picker">
+                    <label htmlFor="schedule-date">{t('dialog.scheduleDate')}</label>
+                    <input
+                      id="schedule-date"
+                      ref={firstFieldRef}
+                      className="dialog-input"
+                      type="date"
+                      value={schedDate}
+                      onChange={(event) => {
+                        setSchedDate(event.target.value);
+                        setSchedError(null);
+                      }}
+                    />
+                  </div>
+                  <div className="sched-picker">
+                    <label htmlFor="schedule-time">{t('dialog.scheduleTime')}</label>
+                    <input
+                      id="schedule-time"
+                      className="dialog-input"
+                      type="time"
+                      value={schedTime}
+                      onChange={(event) => {
+                        setSchedTime(event.target.value);
+                        setSchedError(null);
+                      }}
+                    />
+                  </div>
+                </div>
+                {schedError && (
+                  <p className="dialog-hint error">
+                    {schedError === 'past' ? t('dialog.schedulePast') : t('dialog.scheduleEmpty')}
+                  </p>
+                )}
               </div>
             )}
 

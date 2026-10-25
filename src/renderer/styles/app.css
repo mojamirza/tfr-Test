@@ -1073,6 +1073,166 @@
   background: color-mix(in srgb, var(--danger) 9%, transparent);
 }
 
+/* ═══════════════════ Scheduler queue sheet ═══════════════════ */
+
+/* The rows mirror the drafts list: icon + two lines, an action button each
+   on the rail. The fire button reuses the send accent; removal is the same
+   quiet trash the drafts list carries. */
+
+.sched-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  max-height: min(380px, calc(100vh - 260px));
+  overflow-y: auto;
+}
+
+.sched-item {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--outline);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface2) 45%, transparent);
+  transition: border-color 0.14s ease;
+}
+
+.sched-item:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--outline));
+}
+
+.sched-open {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  color: var(--text);
+  text-align: start;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+.sched-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.sched-when {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.sched-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.sched-fire {
+  border: none;
+  border-inline-start: 1px solid var(--outline);
+  background: transparent;
+  color: var(--accent);
+  padding: 0 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.sched-fire:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.sched-remove {
+  border: none;
+  border-inline-start: 1px solid var(--outline);
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.sched-remove:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+}
+
+/* ═══════════════════ Saved chat-ID chips ═══════════════════ */
+
+/* Under the chat-ID field: one chip per remembered ID. The ID sets the
+   field in a click; the ✕ prunes the list. */
+
+.chat-chips {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.chat-chips-label {
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.chat-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chat-chip {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface2) 60%, transparent);
+  transition: border-color 0.14s ease;
+}
+
+.chat-chip:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--outline));
+}
+
+.chat-chip-id {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  padding: 3px 4px 3px 11px;
+  cursor: pointer;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-chip-x {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0 7px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.chat-chip-x:hover {
+  color: var(--danger);
+}
+
 /* ═══════════════════════════ Toasts ═══════════════════════════ */
 
 #toast-container {
@@ -1128,6 +1288,20 @@
 
 .dialog-fields label + .dialog-input {
   margin-bottom: 4px;
+}
+
+/* The scheduler's two native pickers share one line: the browser's own
+   date calendar and time strip, values always `YYYY-MM-DD` / `HH:MM`. */
+.sched-pickers {
+  display: flex;
+  gap: 10px;
+}
+
+.sched-picker {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 /* The code-block language picker: a search box over a scrollable list. */

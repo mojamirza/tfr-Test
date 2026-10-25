@@ -21,6 +21,7 @@ import Drafts from './components/Drafts.jsx';
 import Inspector from './components/Inspector.jsx';
 import Preview from './components/Preview.jsx';
 import PublishSheet from './components/PublishSheet.jsx';
+import ScheduleSheet from './components/ScheduleSheet.jsx';
 import Settings from './components/Settings.jsx';
 import TitleBar from './components/TitleBar.jsx';
 import { ToastProvider, useToast } from './components/Toast.jsx';
@@ -43,6 +44,7 @@ const EDIT_ID_KEY = 'tfr-edit-id';
 const RTL_KEY = 'tfr-rtl';
 const ENTITIES_KEY = 'tfr-skip-entities';
 const AUTOSAVE_KEY = 'tfr-autosave';
+const SCHEDULE_KEY = 'tfr-schedule';
 
 /** Draft streaming needs a stable non-zero id so updates animate in place. */
 const DRAFT_ID = 1;
@@ -60,6 +62,7 @@ function Shell({ lang, onLangChange }) {
     askInlineButton,
     askCodeLanguage,
     askFormula,
+    askSchedule,
     askChoice,
     askMap,
     askDetails,
@@ -115,6 +118,19 @@ function Shell({ lang, onLangChange }) {
   const [sending, setSending] = useState(false);
   const [drafts, setDrafts] = useState([]);
   const [draftsSaving, setDraftsSaving] = useState(false);
+  const [schedulesOpen, setSchedulesOpen] = useState(false);
+  // The scheduler queue: entries validated and analysed at enqueue time,
+  // held with their exact pre-computed requests. The Bot API carries no
+  // server-side scheduling for bots, so this list — persisted across
+  // restarts — is what "schedule like in Telegram" means here.
+  const [schedules, setSchedules] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SCHEDULE_KEY) || '[]');
+      return Array.isArray(saved) ? saved.filter((entry) => entry && entry.id && Array.isArray(entry.steps)) : [];
+    } catch {
+      return [];
+    }
+  });
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   // The publish sheet's send parameters — sendRichMessage's optional fields
@@ -182,6 +198,16 @@ function Shell({ lang, onLangChange }) {
   useEffect(() => {
     localStorage.setItem(ENTITIES_KEY, skipEntities ? '1' : '0');
   }, [skipEntities]);
+
+  // The schedule queue survives restarts — a message due after a relaunch
+  // fires from the freshly loaded list.
+  useEffect(() => {
+    try {
+      localStorage.setItem(SCHEDULE_KEY, JSON.stringify(schedules));
+    } catch {
+      // A full quota must not kill the session; the queue stays in memory.
+    }
+  }, [schedules]);
 
   /* ── autosave + restore ──
    *
@@ -281,6 +307,7 @@ function Shell({ lang, onLangChange }) {
       askInlineButton,
       askCodeLanguage,
       askFormula,
+      askSchedule,
       askChoice,
       askMap,
       askDetails,
@@ -295,6 +322,7 @@ function Shell({ lang, onLangChange }) {
       askInlineButton,
       askCodeLanguage,
       askFormula,
+      askSchedule,
       askChoice,
       askMap,
       askDetails,
@@ -322,39 +350,47 @@ function Shell({ lang, onLangChange }) {
     notify('toast.settingsSaved', 'success');
   }, [settings.businessConnectionId, notify]);
 
-  /* ── send ── */
-
-  const handleSend = useCallback(async () => {
+  /* ── send + schedule ──
+   *
+   * One `buildPlan` runs the full pre-flight both sending and scheduling
+   * share: the guards, the analysis, the capability toasts and the
+   * checklist-title question. `handleSend` puts its plan straight on the
+   * wire; `handleSchedule` stores it with a due time for the fire loop.
+   * Keeping the two callers on the same plan is what makes a queued
+   * message exactly the message a send would have produced.
+   * @returns {Promise<{ steps: Array<object>, chatId: string, label: string, mode: string } | null>}
+   *   Null means a guard failed — the reason was already announced.
+   */
+  const buildPlan = useCallback(async () => {
     if (!settings.tokenSet) {
       notify('toast.configureToken', 'error');
       setSettingsOpen(true);
-      return;
+      return null;
     }
     if (!settings.chatId) {
       notify('toast.setChatId', 'error');
       setSettingsOpen(true);
-      return;
+      return null;
     }
     // Not `charCount === 0`: a message of nothing but a photo, a gallery or a
     // map has no characters at all and is still perfectly sendable. Whether
     // anything survived serialization is checked below instead.
     if (!html.trim()) {
       notify('toast.nothingToSend', 'error');
-      return;
+      return null;
     }
     if (mode === 'edit' && !settings.editId) {
       notify('toast.needEditId', 'error');
       setSettingsOpen(true);
-      return;
+      return null;
     }
 
     // Drafts stream into a private chat only, and need a non-zero draft_id.
     if (mode === 'draft' && !isPrivateChatId(settings.chatId)) {
       notify('toast.draftPrivateOnly', 'error');
-      return;
+      return null;
     }
 
-    setSending(true);
     try {
       // One shared prepare step serializes with the mode's exact options and
       // collects the capability issues — the article inspector runs the very
@@ -374,8 +410,7 @@ function Shell({ lang, onLangChange }) {
       const limits = checkLimits(message);
       if (!limits.ok) {
         notify(`toast.limit.${limits.reason}`, 'error');
-        setSending(false);
-        return;
+        return null;
       }
 
       if (message.thinkingDropped) {
@@ -390,8 +425,7 @@ function Shell({ lang, onLangChange }) {
       const blocking = analysis.issues.find((issue) => issue.blocking);
       if (blocking) {
         notify(blocking.key, 'error');
-        setSending(false);
-        return;
+        return null;
       }
       const advisories = analysis.issues.filter((issue) => !issue.blocking);
       if (advisories.length) {
@@ -411,17 +445,13 @@ function Shell({ lang, onLangChange }) {
         const valid = checkChecklist(message.checklist);
         if (!valid.ok) {
           notify(`toast.checklist.${valid.reason}`, 'error');
-          setSending(false);
-          return;
+          return null;
         }
         const title = await askText({
           titleKey: 'dialog.checklistTitle',
           placeholder: tRef.current('dialog.checklistTitlePlaceholder'),
         });
-        if (title === null) {
-          setSending(false);
-          return;
-        }
+        if (title === null) return null;
         checklistTitle = title.trim() || tRef.current('dialog.checklistTitleFallback');
         if (analysis.doneIgnored) {
           notify('toast.checklistDoneIgnored', 'info');
@@ -434,19 +464,45 @@ function Shell({ lang, onLangChange }) {
       const steps = analysis.requests({ title: checklistTitle });
       if (!steps.length) {
         notify('toast.nothingToSend', 'error');
-        return;
+        return null;
       }
-      for (const step of steps) {
+
+      // The queue label: the message's own first words, tags stripped —
+      // what the schedule sheet shows beside the due time.
+      const label =
+        html
+          .replace(/<[^>]*>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 60) || '';
+
+      return { steps, chatId: settings.chatId, label, mode };
+    } catch {
+      notify('toast.networkError', 'error');
+      return null;
+    }
+  }, [settings, html, mode, isRtl, skipEntities, publish, notify, toast, askText]);
+
+  const handleSend = useCallback(async () => {
+    const plan = await buildPlan();
+    if (!plan) return;
+    setSending(true);
+    try {
+      for (const step of plan.steps) {
         const result = await window.app.api(step.method, step.body);
         if (step.kind === 'checklist') {
           if (!result.ok) {
             toast(`${tRef.current('toast.networkError')}: ${result.description}`, 'error');
-          } else if (!message.html) {
+          } else if (!plan.steps.some((s) => s.kind !== 'checklist')) {
             notify('toast.checklistSent', 'success');
           }
         } else if (result.ok) {
           notify(
-            mode === 'draft' ? 'toast.draftSent' : mode === 'edit' ? 'toast.edited' : 'toast.sent',
+            plan.mode === 'draft'
+              ? 'toast.draftSent'
+              : plan.mode === 'edit'
+                ? 'toast.edited'
+                : 'toast.sent',
             'success',
           );
         } else {
@@ -457,7 +513,113 @@ function Shell({ lang, onLangChange }) {
       notify('toast.networkError', 'error');
     }
     setSending(false);
-  }, [settings, html, mode, isRtl, skipEntities, publish, notify, toast, askText]);
+  }, [buildPlan, notify, toast]);
+
+  /* ── the local scheduler queue ── */
+
+  /** Guards against two fire passes overlapping — a queued send is
+      sequential and can take seconds. */
+  const firingRef = useRef(false);
+
+  /**
+   * Queue the composed message: pick a due moment, store the pre-computed
+   * steps, clear the composer — exactly what Telegram's own clients do
+   * with a scheduled send.
+   */
+  const handleSchedule = useCallback(async () => {
+    const moment = await askSchedule();
+    if (!moment) return;
+    const plan = await buildPlan();
+    if (!plan) return;
+    setSchedules((prev) => [
+      ...prev,
+      {
+        id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        at: moment.at,
+        chatId: plan.chatId,
+        steps: plan.steps,
+        label: plan.label,
+      },
+    ]);
+    notify('toast.scheduled', 'success');
+    // The message now lives in the queue: the autosave copy goes too, or a
+    // prompt quit would resurrect a message that is about to send itself.
+    localStorage.removeItem(AUTOSAVE_KEY);
+    if (editor) editor.chain().focus().clearContent(true).run();
+    setHtml('');
+    setCharCount(0);
+  }, [askSchedule, buildPlan, notify, editor]);
+
+  /**
+   * One entry's pre-computed request steps, straight on the wire.
+   * @returns {Promise<boolean>} True when every step succeeded.
+   */
+  const fireEntry = useCallback(
+    async (entry) => {
+      try {
+        for (const step of entry.steps) {
+          const result = await window.app.api(step.method, step.body);
+          if (!result.ok) {
+            toast(`${tRef.current('toast.networkError')}: ${result.description}`, 'error');
+            return false;
+          }
+        }
+      } catch {
+        notify('toast.networkError', 'error');
+        return false;
+      }
+      return true;
+    },
+    [notify, toast],
+  );
+
+  /** A queued entry the sheet "Send now" fired — success drops it. */
+  const sendQueueEntry = useCallback(
+    async (entry) => {
+      const ok = await fireEntry(entry);
+      if (ok) {
+        setSchedules((prev) => prev.filter((item) => item.id !== entry.id));
+        notify('toast.scheduleSent', 'success');
+      }
+      // A failure stays queued — it can be retried from the sheet.
+    },
+    [fireEntry, notify],
+  );
+
+  /**
+   * The fire loop's tick: every due entry, oldest first, sequentially. A
+   * failed entry stays queued and faces the next tick; the loop is guarded
+   * so a slow Telegram answer cannot start a second pass.
+   */
+  const fireDue = useCallback(async () => {
+    if (firingRef.current) return;
+    const now = Math.floor(Date.now() / 1000);
+    const due = schedules.filter((entry) => entry.at <= now).sort((a, b) => a.at - b.at);
+    if (!due.length) return;
+    firingRef.current = true;
+    try {
+      for (const entry of due) {
+        const ok = await fireEntry(entry);
+        if (ok) {
+          setSchedules((prev) => prev.filter((item) => item.id !== entry.id));
+          notify('toast.scheduleSent', 'success');
+        }
+      }
+    } finally {
+      firingRef.current = false;
+    }
+  }, [schedules, fireEntry, notify]);
+
+  const fireDueRef = useRef(fireDue);
+  fireDueRef.current = fireDue;
+
+  // A 15-second tick, plus one immediate pass on start — a message due
+  // while the app was closed fires at the next launch.
+  useEffect(() => {
+    fireDueRef.current();
+    const timer = setInterval(() => fireDueRef.current(), 15000);
+    return () => clearInterval(timer);
+  }, []);
 
   /* ── local drafts ── */
 
@@ -664,6 +826,8 @@ function Shell({ lang, onLangChange }) {
         onSend={handleSend}
         onClear={handleClear}
         onOpenPublish={() => setPublishOpen(true)}
+        onSchedule={handleSchedule}
+        onOpenSchedules={() => setSchedulesOpen(true)}
       />
 
       <Drafts
@@ -674,6 +838,14 @@ function Shell({ lang, onLangChange }) {
         onSave={saveDraft}
         onLoad={loadDraft}
         onDelete={deleteDraft}
+      />
+
+      <ScheduleSheet
+        open={schedulesOpen}
+        onClose={() => setSchedulesOpen(false)}
+        schedules={schedules}
+        onSendNow={sendQueueEntry}
+        onRemove={(entry) => setSchedules((prev) => prev.filter((item) => item.id !== entry.id))}
       />
       <PublishSheet
         open={publishOpen}

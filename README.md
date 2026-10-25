@@ -8,12 +8,12 @@
 <p align="center"><em>Because bots should not have more rights than humans.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.7.7-2ca5e0" alt="Version 5.7.7">
+  <img src="https://img.shields.io/badge/version-5.7.8-2ca5e0" alt="Version 5.7.8">
   <img src="https://img.shields.io/badge/Bot%20API-10.3-2ca5e0?logo=telegram&logoColor=white" alt="Bot API 10.3">
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" alt="React 19">
   <img src="https://img.shields.io/badge/TipTap-2-8b5cf6" alt="TipTap 2">
-  <img src="https://img.shields.io/badge/tests-466%20passing-4fc3a1" alt="466 tests">
+  <img src="https://img.shields.io/badge/tests-472%20passing-4fc3a1" alt="472 tests">
   <img src="https://img.shields.io/badge/license-MIT-8b99a7" alt="MIT">
 </p>
 
@@ -176,7 +176,7 @@ The toolbar carries four labelled groups — **Text**, **Blocks**, **Media** and
 | ⊞ ➸ | **Buttons row**, the 10.3 **Inline button in text** — the interactive publish-time layer |
 | ✈ | **Publish options** → the send-time sheet: forum **topic ID**, **direct-messages topic**, **reply to message**, **send silently**, **protect contents**, **message effect**, **business connection** |
 | ✦ | The insert palette — search every block and format by name; also home of @mention, custom emoji, formatted time and the Thinking placeholder |
-| 🗑 ➤ | Clear the message · Send it (right-click to pick rich message, draft or edit, publish options and the *skip auto-detection* toggle) |
+| 🗑 ➤ | Clear the message · Send it (right-click to pick rich message, draft or edit, **Schedule…**, **Scheduled queue…**, publish options and the *skip auto-detection* toggle) |
 
 The title bar holds the settings gear with a connection dot, the **local drafts** folder, the
 live-preview toggle, the **article inspector** — outline, live counts (characters, blocks, media,
@@ -228,6 +228,14 @@ And while you write:
 - **Character counter** against Telegram's 32,768 limit
 - **Skip auto-detection** — sends `skip_entity_detection`, leaving hashtags and phone numbers as
   plain text
+- **Scheduled messages** — right-click the send button, pick **Schedule…**, set a date and time:
+  the message is validated now, leaves the composer and fires at its due moment. The Bot API has
+  no server-side scheduling for bots — no `schedule_date` on any send method (checked against the
+  live docs through API 10.3) — so, like Telegram's own clients, the queue is **local**: entries
+  persist across restarts and fire while the app is running, with the **Scheduled queue** sheet to
+  send early, retry a failed fire or drop an entry
+- **Saved chat IDs** — every ID you save in Settings joins a chip list under the field; switch
+  targets in a click, prune with the ✕, and *Save* remembers whatever the field then holds
 
 ### Send modes
 
@@ -238,6 +246,8 @@ Right-click the send button:
 | **Rich message** | `sendRichMessage` — the normal path |
 | **Draft** | `sendRichMessageDraft` — a 30-second preview, private chats only |
 | **Edit** | `editMessageText` — rewrites an existing message (ID comes from Settings) |
+| **Schedule…** | queue the composed message for a chosen date and time |
+| **Scheduled queue…** | the queue sheet — send early, retry, or drop an entry |
 
 ### Keyboard shortcuts
 
@@ -382,7 +392,7 @@ Renderer (React)                     Main process (Electron)
 
 ```bash
 npm run dev           # Vite + Electron with hot reload
-npm test              # 466 unit tests (Vitest)
+npm test              # 472 unit tests (Vitest)
 npm run lint          # ESLint, zero warnings
 npm run format        # Prettier
 npm run build         # Windows: dist/TelegramFreeRich-Setup-5.4.0.exe + …-portable.exe
@@ -433,7 +443,7 @@ src/
     ├── constants.js            limits and defaults
     └── utils.js                sanitizeUrl, validation, helpers
 
-tests/unit/                     466 tests - HTML serializer, proxy, packaging, docs, parsers,
+tests/unit/                     472 tests - HTML serializer, proxy, packaging, docs, parsers,
                                 i18n parity, stylesheets, validation
 ```
 

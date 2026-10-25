@@ -37,6 +37,8 @@ const MODES = [
  *   onSend: () => void,
  *   onClear: () => void,
  *   onOpenPublish: () => void,
+ *   onSchedule: () => void,
+ *   onOpenSchedules: () => void,
  * }} props
  * @returns {JSX.Element}
  */
@@ -52,6 +54,8 @@ export default function BottomBar({
   onSend,
   onClear,
   onOpenPublish,
+  onSchedule,
+  onOpenSchedules,
 }) {
   const { t } = useI18n();
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -178,6 +182,31 @@ export default function BottomBar({
             }}
           >
             <span className="menu-label">{t('send.publishOptions')}</span>
+          </button>
+          <span className="menu-sep" />
+          {/* The scheduler — the Bot API has no server-side scheduling for
+              bots, so "like Telegram" means the local queue: pick a time,
+              the entry fires while the app runs, and the queue lives in the
+              second row's sheet. */}
+          <button
+            type="button"
+            className="menu-item"
+            onClick={() => {
+              onSchedule();
+              setSendMenuOpen(false);
+            }}
+          >
+            <span className="menu-label">{t('send.schedule')}</span>
+          </button>
+          <button
+            type="button"
+            className="menu-item"
+            onClick={() => {
+              onOpenSchedules();
+              setSendMenuOpen(false);
+            }}
+          >
+            <span className="menu-label">{t('send.queue')}</span>
           </button>
           <span className="menu-sep" />
           {/* skip_entity_detection — flags Telegram would otherwise find by
