@@ -1,6 +1,6 @@
 {
   "name": "telegramfreerich",
-  "version": "5.8.0",
+  "version": "5.9.0",
   "description": "Free Rich Text Editor for Telegram — Desktop Edition",
   "author": "Aporis3674",
   "license": "MIT",
@@ -20,6 +20,7 @@
     "format": "prettier --write \"src/**/*.{js,jsx,css,json}\"",
     "test": "vitest run",
     "android": "vite build && cap sync && gradlew.bat assembleDebug --project-dir android",
+    "ios": "vite build && cap sync ios && echo 'Swift compile happens on the macOS CI — run the ios-build workflow on GitHub'",
     "android:clean": "gradlew.bat clean --project-dir android",
     "test:watch": "vitest"
   },
@@ -68,6 +69,7 @@
   "dependencies": {
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
     "@tiptap/extension-color": "^2.11.0",
     "@tiptap/extension-highlight": "^2.11.0",
     "@tiptap/extension-image": "^2.27.2",

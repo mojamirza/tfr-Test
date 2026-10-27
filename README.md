@@ -8,10 +8,11 @@
 <p align="center"><em>Because bots should not have more rights than humans.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.8.0-2ca5e0" alt="Version 5.8.0">
+  <img src="https://img.shields.io/badge/version-5.9.0-2ca5e0" alt="Version 5.9.0">
   <img src="https://img.shields.io/badge/Bot%20API-10.3-2ca5e0?logo=telegram&logoColor=white" alt="Bot API 10.3">
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
   <img src="https://img.shields.io/badge/Android-Capacitor%208-3ddc84?logo=android&logoColor=white" alt="Android via Capacitor">
+  <img src="https://img.shields.io/badge/iOS-sideloaded%20.ipa-007aff" alt="iOS sideloaded .ipa">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" alt="React 19">
   <img src="https://img.shields.io/badge/TipTap-2-8b5cf6" alt="TipTap 2">
   <img src="https://img.shields.io/badge/tests-472%20passing-4fc3a1" alt="472 tests">
@@ -399,7 +400,33 @@ npm run format        # Prettier
 npm run build         # Windows: dist/TelegramFreeRich-Setup-5.4.0.exe + …-portable.exe
 npm run build:linux   # Linux: dist/TelegramFreeRich-5.4.0.AppImage
 npm run android       # Android: vite build + cap sync + gradlew assembleDebug
+npm run ios           # iOS: vite build + cap sync (the Swift compile runs on the macOS CI)
 ```
+
+### iOS / iPadOS — no Mac needed
+
+The app also ships as a **sideloaded .ipa** for personal use. iOS can only be
+compiled on macOS, so that single compile step runs on a **free GitHub Actions
+macOS runner** (this repo is public, so its minutes are free):
+
+1. **Build** — push a tag `ios*` (or run the `ios-build` workflow from the
+   Actions tab). A few minutes later the run's artifacts hold
+   `TelegramFreeRich-unsigned.ipa` — compiled for real iOS hardware, unsigned.
+2. **Sign + install from Windows** — open [Sideloadly](https://sideloadly.io)
+   with the iPad plugged in by cable, feed it the .ipa and your ordinary
+   Apple ID. It signs with your Apple ID and installs. No paid developer
+   account, no App Store.
+3. **On the iPad** — enable **Developer Mode** (Settings, shown once the first
+   signed app arrives, passcode + one reboot), then trust your Apple ID under
+   Settings → General → VPN & Device Management.
+
+Honest fine print of the free Apple ID route:
+
+- the signature lasts **7 days** — re-run Sideloadly on the same .ipa to
+  refresh (every week), or install **SideStore** alongside, which re-signs
+  on-device without the PC
+- free accounts can hold **3 sideloaded apps at most** — fine for one app
+- nothing is published anywhere; the .ipa never touches the App Store
 
 ### Android
 

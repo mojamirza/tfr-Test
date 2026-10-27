@@ -1,0 +1,64 @@
+# iOS / iPadOS build — runs on a free macOS runner (public repo).
+#
+# Produces an UNSIGNED .ipa (no Apple developer account needed). Download it
+# from the workflow run's artifacts, then sign + install it with Sideloadly
+# or AltStore using a regular free Apple ID (7-day signature, re-sign to
+# refresh). Developer Mode must be on for the first launch on the iPad.
+#
+# Manual trigger: Actions tab → iOS build → Run workflow.
+
+name: ios-build
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - 'ios*'
+
+jobs:
+  build-ipa:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JS dependencies
+        run: npm install
+
+      - name: Build renderer
+        run: npx vite build
+
+      - name: Sync web assets into the iOS shell
+        run: npx cap sync ios
+
+      - name: Compile the app (unsigned, arm64 device)
+        run: |
+          cd ios/App
+          xcodebuild -project App.xcodeproj -target App -configuration Release \
+            -sdk iphoneos -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" CODE_SIGN_ENTITLEMENTS="" \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES
+
+      - name: Package the .ipa
+        run: |
+          mkdir -p Payload
+          cp -R ios/App/build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qr TelegramFreeRich-unsigned.ipa Payload
+          mkdir -p out
+          mv TelegramFreeRich-unsigned.ipa out/
+          rm -rf Payload
+
+      - name: Upload the artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TelegramFreeRich-unsigned-ipa
+          path: out/TelegramFreeRich-unsigned.ipa
+          if-no-files-found: error

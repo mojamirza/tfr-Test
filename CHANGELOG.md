@@ -1,5 +1,35 @@
 # Changelog
 
+## [5.9.0] - 2026-10-27
+
+### Added — iOS / iPadOS (sideloaded, no Mac required)
+
+- **The app builds for iOS now.** A `.github/workflows/ios.yml` workflow runs
+  on GitHub's **free macOS runner** (public repo, free minutes): it builds the
+  renderer, syncs it into the Capacitor iOS shell, compiles the whole thing
+  with `xcodebuild` **unsigned**, and uploads a `TelegramFreeRich-unsigned.ipa`
+  artifact. No Apple developer account anywhere in the loop
+- **The Electron main process is rebuilt natively as `TfrBridgePlugin`**
+  (Swift, `ios/App/App/`): the Telegram client is URLSession — token attached
+  in the plugin, the same hand-built multipart uploads as the desktop
+  (`net/request.js` contract mirrored field-for-field), the same system /
+  manual / direct proxy modes through the URLSession proxy dictionary, and
+  the desktop's evidence-based proxy error hints
+- **Settings encrypted for real** — AES-256-GCM via CryptoKit, the key
+  generated inside the **Keychain** and never landing in a file;
+  `loadSettings` still never returns the token
+- **All ten IPC channels re-implemented**: drafts file, connection tests,
+  decrypted settings, the system document picker (picked files are copied into
+  the app's private `Documents/tfr` folder), and no-op window controls
+- **Local media on-device** — a `WKURLSchemeHandler` registered in
+  `MainViewController` answers `tfrfile://media/…` from the app's own folders
+  only, stricter-path-checked than the desktop's absolute-path rule, and the
+  renderer's Capacitor bridge is now shared (`bridge-capacitor.js`) by both
+  Android and iOS
+- **Install it yourself**: run the workflow, download the .ipa, sign it with
+  your ordinary Apple ID through **Sideloadly** (Windows), enable Developer
+  Mode on the iPad — 7-day re-sign cycle, documented in both READMEs
+
 ## [5.8.0] - 2026-10-27
 
 ### Added — Android

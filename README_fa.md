@@ -8,10 +8,11 @@
 <p align="center"><em>چون بات‌ها نباید از انسان‌ها حقوق بیشتری داشته باشند.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.8.0-2ca5e0" alt="نسخه ۵٫۸٫۰">
+  <img src="https://img.shields.io/badge/version-5.9.0-2ca5e0" alt="نسخه ۵٫۹٫۰">
   <img src="https://img.shields.io/badge/Bot%20API-10.3-2ca5e0?logo=telegram&logoColor=white" alt="Bot API 10.3">
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
   <img src="https://img.shields.io/badge/Android-Capacitor%208-3ddc84?logo=android&logoColor=white" alt="Android با Capacitor">
+  <img src="https://img.shields.io/badge/iOS-sideloaded%20.ipa-007aff" alt="iOS با ipa سایدلود">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" alt="React 19">
   <img src="https://img.shields.io/badge/TipTap-2-8b5cf6" alt="TipTap 2">
   <img src="https://img.shields.io/badge/tests-472%20passing-4fc3a1" alt="۴۷۲ تست">
@@ -378,7 +379,33 @@ npm run format        # Prettier
 npm run build         # ویندوز: dist/TelegramFreeRich-Setup-5.4.0.exe و …-portable.exe
 npm run build:linux   # لینوکس: dist/TelegramFreeRich-5.4.0.AppImage
 npm run android       # اندروید: vite build + cap sync + gradlew assembleDebug
+npm run ios           # iOS: vite build + cap sync (کامپایل سوئیفت روی CI مک انجام می‌شود)
 ```
+
+### iOS / iPadOS — بدون مک
+
+برنامه به شکل **فایل ipa سایدلود** می‌شود، برای استفادهٔ شخصی. سیستم iOS فقط با
+کامپایلر مک ساخته می‌شود، پس همان قدم کامپایل روی **رانر مکیِ رایگان GitHub
+Actions** انجام می‌گیرد (این مخزن عمومی است و دقایقش رایگان است):
+
+1. **ساخت** — تگ `ios*` را پوش کنید (یا ورک‌فلو `ios-build` را از تب Actions
+   اجرا کنید). چند دقیقه بعد، در آرتیفکت‌های همان اجرا فایلِ
+   `TelegramFreeRich-unsigned.ipa` آماده است — کامپایل‌شده برای سخت‌افزار واقعی
+   iOS، بدون امضا.
+2. **امضا و نصب از ویندوز** — [Sideloadly](https://sideloadly.io) را با آیپد
+   متصل به کابل باز کنید، فایل ipa و اپل‌آی‌دی معمولی خودتان را بدهید. فایل با
+   اپل‌آی‌دی شما امضا و نصب می‌شود. بدون حساب توسعه‌دهندهٔ پولی و بدون اپ استور.
+3. **روی آیپد** — **حالت توسعه‌دهنده** را فعال کنید (در تنظیمات، پس از اولین
+   نصبِ امضاشده ظاهر می‌شود؛ رمز + یک ریبوت)، بعد اپل‌آی‌دی خودتان را در
+   تنظیمات ← عمومی ← VPN و مدیریت دستگاه تأیید کنید.
+
+نکات صادقانهٔ مسیر رایگان اپل‌آی‌دی:
+
+- امضا **۷ روز** اعتبار دارد — برای تمدید هر هفته همان ipa را دوباره با
+  Sideloadly امضا و نصب کنید، یا **SideStore** را کنارش نصب کنید که بدون رایانه
+  خودش روی دستگاه امضا می‌کند
+- حساب‌های رایگان حداکثر **۳ اپ سایدلود** می‌توانند داشته باشند — برای یک اپ کافی است
+- هیچ‌جا چیزی منتشر نمی‌شود؛ فایل ipa هرگز به اپ استور نمی‌رود
 
 ### Android
 

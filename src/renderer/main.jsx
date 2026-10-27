@@ -3,7 +3,7 @@
  */
 
 import { createRoot } from 'react-dom/client';
-import './lib/bridge-android.js';
+import './lib/bridge-capacitor.js';
 import App from './App.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 

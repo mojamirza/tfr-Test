@@ -49,9 +49,10 @@ export default function TitleBar({
   const { t } = useI18n();
   const [maximized, setMaximized] = useState(false);
   const platform = (window.app && window.app.platform) || 'linux';
-  // macOS traffic lights paint their own; Android has no window frame
-  // either — the system owns minimize and close there.
-  const showControls = platform !== 'darwin' && platform !== 'android';
+  // macOS traffic lights paint their own; on Android and iOS the system owns
+  // minimize and close — there is no window frame for the strip to sit on.
+  const showControls =
+    platform !== 'darwin' && platform !== 'android' && platform !== 'ios';
 
   useEffect(() => {
     if (!window.app || !window.app.win) return undefined;
