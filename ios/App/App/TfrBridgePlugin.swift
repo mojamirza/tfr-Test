@@ -162,7 +162,7 @@ public class TfrBridgePlugin: CAPPlugin, CAPBridgedPlugin, UIDocumentPickerDeleg
             .string(forKey: Self.defaultsBlobKey) else { return nil }
         guard let key = loadKey(), let combined = Data(base64Encoded: raw) else { return nil }
         do {
-            let sealed = try AES.GCM.SealedMessage(combined: combined)
+            let sealed = try AES.GCM.SealedBox(combined: combined)
             let plain = try AES.GCM.open(sealed, using: key)
             return String(data: plain, encoding: .utf8)
         } catch {
@@ -344,6 +344,15 @@ public class TfrBridgePlugin: CAPPlugin, CAPBridgedPlugin, UIDocumentPickerDeleg
 
     private enum TfrError: Error {
         case message(String)
+    }
+
+    /// Unwrap the thrown TfrError's payload (enum associated values need
+    /// pattern matching — no auto `.message` property).
+    private static func describeError(_ error: Error) -> String {
+        if let tfr = error as? TfrError, case .message(let m) = tfr {
+            return m
+        }
+        return "Network error"
     }
 
     /// One Telegram call — multipart for attachments, JSON otherwise, exactly
@@ -541,9 +550,7 @@ public class TfrBridgePlugin: CAPPlugin, CAPBridgedPlugin, UIDocumentPickerDeleg
                 }
                 call.resolve(out)
             } catch {
-                let message = (error as? TfrError)?.message
-                    ?? "Network error"
-                call.resolve(["ok": false, "description": message])
+                call.resolve(["ok": false, "description": Self.describeError(error)])
             }
         }
     }
@@ -655,8 +662,7 @@ public class TfrBridgePlugin: CAPPlugin, CAPBridgedPlugin, UIDocumentPickerDeleg
                 let url = URL(string: "https://api.telegram.org/bot\(token)/getMe")!
                 call.resolve(try self.tgCall(url: url, payload: nil, files: []))
             } catch {
-                let message = (error as? TfrError)?.message ?? "Network error"
-                call.resolve(["ok": false, "description": message])
+                call.resolve(["ok": false, "description": Self.describeError(error)])
             }
         }
     }
@@ -676,7 +682,7 @@ public class TfrBridgePlugin: CAPPlugin, CAPBridgedPlugin, UIDocumentPickerDeleg
                     "mode": proxy.mode,
                 ])
             } catch {
-                let message = (error as? TfrError)?.message ?? "Network error"
+                let message = Self.describeError(error)
                 call.resolve([
                     "ok": false,
                     "reachable": false,
