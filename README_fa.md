@@ -8,9 +8,10 @@
 <p align="center"><em>چون بات‌ها نباید از انسان‌ها حقوق بیشتری داشته باشند.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.7.8-2ca5e0" alt="نسخه ۵٫۷٫۸">
+  <img src="https://img.shields.io/badge/version-5.8.0-2ca5e0" alt="نسخه ۵٫۸٫۰">
   <img src="https://img.shields.io/badge/Bot%20API-10.3-2ca5e0?logo=telegram&logoColor=white" alt="Bot API 10.3">
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
+  <img src="https://img.shields.io/badge/Android-Capacitor%208-3ddc84?logo=android&logoColor=white" alt="Android با Capacitor">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" alt="React 19">
   <img src="https://img.shields.io/badge/TipTap-2-8b5cf6" alt="TipTap 2">
   <img src="https://img.shields.io/badge/tests-472%20passing-4fc3a1" alt="۴۷۲ تست">
@@ -371,12 +372,36 @@ Renderer (React)                     پردازشگر Main (Electron)
 
 ```bash
 npm run dev           # Vite + Electron با هات‌ریلود
-npm test              # ۴۶۵ تست واحد (Vitest)
+npm test              # ۴۷۲ تست واحد (Vitest)
 npm run lint          # ESLint، بدون هشدار
 npm run format        # Prettier
 npm run build         # ویندوز: dist/TelegramFreeRich-Setup-5.4.0.exe و …-portable.exe
 npm run build:linux   # لینوکس: dist/TelegramFreeRich-5.4.0.AppImage
+npm run android       # اندروید: vite build + cap sync + gradlew assembleDebug
 ```
+
+### Android
+
+همان رندرر با **Capacitor** به APK تبدیل می‌شود — پروسهٔ اصلی الکترون به‌صورت
+بومی بازسازی شده است (`TfrBridgePlugin`، جاوا، در پوشهٔ `android/`):
+
+```bash
+npm run android   # → android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+- به Android SDK (`ANDROID_HOME`) و JDK 21 نیاز دارد؛ بقیه را Gradle می‌گیرد
+- کلاینت تلگرام **OkHttp بومی** است: توکن در خود افزونه پیوست می‌شود، آپلودها
+  همان بدنه‌های multipart میزبان را دارند و همان سه حالت پروکسی (سیستم / دستی /
+  مستقیم، SOCKS4/5 و HTTP) کار می‌کنند
+- تنظیمات با AES-256-GCM رمز می‌شوند؛ کلید در خود **AndroidKeyStore** ساخته
+  می‌شود — توکن هرگز در فایلی ساده نمی‌نشیند
+- فهرست سفیدِ متدها، الگوهای اعتبارسنجی و سقف آپلود ۵۰ مگابایتی همان میزبان‌اند؛
+  فایل‌های انتخابی در حافظهٔ خصوصی برنامه کپی و از طریق رسانهٔ رهگیری‌شدهٔ
+  `tfrfile://` به ویرایشگر و پیش‌نمایش خدمت می‌شوند
+- خروجی این ساخت، APK **دیباگ** است که برای نصب روی دستگاه امضا شده (فعال‌کردن
+  «نصب برنامه‌های ناشناس» لازم است)
+- صفٔ زمان‌بندی حین باز بودن برنامه سرِ وقت عمل می‌کند — اندروید تایمرهای
+  پس‌زمینه را می‌خواباند؛ پس همان صداقتِ صف میزبان اینجا هم برقرار است
 
 <details>
 <summary><strong>ساختار پروژه</strong></summary>

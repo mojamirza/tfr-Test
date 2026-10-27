@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TelegramFreeRich</string>
+    <string name="title_activity_main">TelegramFreeRich</string>
+    <string name="package_name">com.aporis.telegramfreerich</string>
+    <string name="custom_url_scheme">com.aporis.telegramfreerich</string>
+</resources>

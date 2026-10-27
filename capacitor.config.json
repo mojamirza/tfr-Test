@@ -1,0 +1,11 @@
+{
+  "appId": "com.aporis.telegramfreerich",
+  "appName": "TelegramFreeRich",
+  "webDir": "build/renderer",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

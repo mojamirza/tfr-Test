@@ -8,9 +8,10 @@
 <p align="center"><em>Because bots should not have more rights than humans.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.7.8-2ca5e0" alt="Version 5.7.8">
+  <img src="https://img.shields.io/badge/version-5.8.0-2ca5e0" alt="Version 5.8.0">
   <img src="https://img.shields.io/badge/Bot%20API-10.3-2ca5e0?logo=telegram&logoColor=white" alt="Bot API 10.3">
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
+  <img src="https://img.shields.io/badge/Android-Capacitor%208-3ddc84?logo=android&logoColor=white" alt="Android via Capacitor">
   <img src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" alt="React 19">
   <img src="https://img.shields.io/badge/TipTap-2-8b5cf6" alt="TipTap 2">
   <img src="https://img.shields.io/badge/tests-472%20passing-4fc3a1" alt="472 tests">
@@ -397,7 +398,31 @@ npm run lint          # ESLint, zero warnings
 npm run format        # Prettier
 npm run build         # Windows: dist/TelegramFreeRich-Setup-5.4.0.exe + …-portable.exe
 npm run build:linux   # Linux: dist/TelegramFreeRich-5.4.0.AppImage
+npm run android       # Android: vite build + cap sync + gradlew assembleDebug
 ```
+
+### Android
+
+The same renderer ships as an APK through **Capacitor** — the Electron main
+process is rebuilt natively (`TfrBridgePlugin`, Java, in the `android/` folder):
+
+```bash
+npm run android   # → android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+- Needs the Android SDK (`ANDROID_HOME`) and a JDK 21; Gradle fetches the rest
+- The Telegram client is native **OkHttp**: the token is attached in the plugin,
+  uploads go out as the same multipart bodies the desktop assembles, and the
+  same system / manual / direct proxy modes work (SOCKS4/5 and HTTP)
+- Settings are AES-256-GCM-encrypted with a key generated inside
+  **AndroidKeyStore** — no token ever lands in a plain file
+- The method allowlist, field regexes and the 50 MB upload cap are the
+  desktop's, mirrored; picked files are copied into the app's private cache and
+  served to the editor+preview through an intercepted `tfrfile://` scheme
+- The shipped artifact is the **debug** APK, signed for install-on-device
+  ("install unknown apps" needs enabling)
+- The schedule queue fires while the app is open — Android freezes background
+  timers, so the queue's honesty is the same as the desktop's
 
 <details>
 <summary><strong>Project layout</strong></summary>

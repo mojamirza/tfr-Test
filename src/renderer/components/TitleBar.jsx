@@ -49,7 +49,9 @@ export default function TitleBar({
   const { t } = useI18n();
   const [maximized, setMaximized] = useState(false);
   const platform = (window.app && window.app.platform) || 'linux';
-  const showControls = platform !== 'darwin';
+  // macOS traffic lights paint their own; Android has no window frame
+  // either — the system owns minimize and close there.
+  const showControls = platform !== 'darwin' && platform !== 'android';
 
   useEffect(() => {
     if (!window.app || !window.app.win) return undefined;

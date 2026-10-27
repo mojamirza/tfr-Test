@@ -1,5 +1,25 @@
 # Changelog
 
+## [5.8.0] - 2026-10-27
+
+### Added — Android
+
+- **The app is on Android now.** The same renderer ships as an APK through
+  Capacitor: `npm run android` → `android/app/build/outputs/apk/debug/app-debug.apk`.
+  The Electron main process is rebuilt natively as `TfrBridgePlugin` (Java):
+  the Telegram client is OkHttp — token attached in the plugin, the same
+  multipart uploads, the same system / manual / direct proxy modes — settings
+  are AES-256-GCM with the key generated inside AndroidKeyStore, and the
+  method allowlist, field regexes and the 50 MB upload cap mirror the
+  desktop's exactly
+- **`window.app` on Android** is a 1:1 restatement of the preload bridge — ten
+  channels, including the local drafts file and the SAF document picker (files
+  are copied into the app's private cache and served to the editor and preview
+  through an intercepted `tfrfile://` scheme, stricter-path-checked than the
+  desktop's)
+- **Cleaned house** — every installer older than the current release was
+  removed from `dist/` (about 1.5 GB freed)
+
 ## [5.7.8] - 2026-10-25
 
 ### Added — a chat-ID history and a scheduler
