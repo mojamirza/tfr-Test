@@ -1,5 +1,17 @@
 # Changelog
 
+## [5.9.1] - 2026-10-28
+
+### Fixed — iPadOS / Android chrome clearance
+
+- **The title bar no longer hides under the status bar.** On iPadOS the web
+  view fills the whole screen, so the time/date (and the battery/wifi cluster)
+  sat on top of the settings button and the tools. The viewport now opts into
+  `viewport-fit=cover` and the shell pads itself inside the safe-area insets —
+  chrome sits below the status bar, content clears the home indicator at the
+  bottom. On desktop every `env()` resolves to 0, so nothing moves there;
+  Android's edge-to-edge enforcement (targetSdk 36) benefits from the same fix
+
 ## [5.9.0] - 2026-10-27
 
 ### Added — iOS / iPadOS (sideloaded, no Mac required)

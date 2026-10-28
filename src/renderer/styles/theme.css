@@ -252,6 +252,12 @@ body {
   display: flex;
   flex-direction: column;
   height: 100dvh;
+  /* Mobile safes: on iPadOS (and edge-to-edge Android) the web view extends
+     under the status bar and home indicator, so the chrome must sit inside
+     those insets. `viewport-fit=cover` (index.html) is what activates them;
+     on desktop every env() resolves to 0 and this is a no-op. */
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }

@@ -8,7 +8,7 @@
 <p align="center"><em>چون بات‌ها نباید از انسان‌ها حقوق بیشتری داشته باشند.</em></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-5.9.0-2ca5e0" alt="نسخه ۵٫۹٫۰">
+  <img src="https://img.shields.io/badge/version-5.9.1-2ca5e0" alt="نسخه ۵٫۹٫۱">
   <img src="https://img.shields.io/badge/Bot%20API-10.3-2ca5e0?logo=telegram&logoColor=white" alt="Bot API 10.3">
   <img src="https://img.shields.io/badge/Electron-35-47848f?logo=electron&logoColor=white" alt="Electron 35">
   <img src="https://img.shields.io/badge/Android-Capacitor%208-3ddc84?logo=android&logoColor=white" alt="Android با Capacitor">
